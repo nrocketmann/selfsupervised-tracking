@@ -65,6 +65,7 @@ def test_args():
         print('Using GPU', args.gpu_id)
         args.device = 'cuda'
     else:
+        print("GPU NOT AVAILABLE")
         args.device = 'cpu'
 
     # Set seed
