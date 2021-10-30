@@ -10,7 +10,7 @@ source ../crw/bin/activate
 
 export TEST_PY="code/test.py"
 export CONVERT_PY="code/eval/convert_davis.py"
-export DAVIS_FILE_PATH="../data/DAVIS/davis_vallist.txt"
+export DAVIS_FILE_PATH="../data/davis/davis_vallist.txt"
 export DAVIS_PATH="../data/davis/"
 export DAVIS_EVAL_PATH="../data/davis2017-evaluation/evaluation_method.py"
 
