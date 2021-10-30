@@ -1,0 +1,6 @@
+*.pyc
+*.csv
+modelsaves/*
+*.ipynb
+__pycache__/*
+.DS_Store
