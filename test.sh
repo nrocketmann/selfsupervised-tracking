@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #SBATCH --partition=gpu
 #SBATCH --time=0-12:00:00
 #SBATCH --gpus=1
