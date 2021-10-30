@@ -8,16 +8,16 @@ cd /home/nameer/EECS542/selfsupervised-tracking/
 module load python/3.8.7
 source ../crw/bin/activate
 
-TEST_PY = "code/test.py"
-CONVERT_PY = "code/eval/convert_davis.py"
-DAVIS_FILE_PATH = "../data/DAVIS/davis_vallist.txt"
-DAVIS_PATH = "../data/davis/"
-DAVIS_EVAL_PATH = "../data/davis2017-evaluation/evaluation_method.py"
+export TEST_PY = "code/test.py"
+export CONVERT_PY = "code/eval/convert_davis.py"
+export DAVIS_FILE_PATH = "../data/DAVIS/davis_vallist.txt"
+export DAVIS_PATH = "../data/davis/"
+export DAVIS_EVAL_PATH = "../data/davis2017-evaluation/evaluation_method.py"
 
 
 #Paths you might actually want to change
-RESULTS_PATH = "../evaluations/results1"
-PRETRAINED_PATH = "../modelsaves/pretrained.pth"
+export RESULTS_PATH = "../evaluations/results1"
+export PRETRAINED_PATH = "../modelsaves/pretrained.pth"
 
 python $TEST_PY --filelist $DAVIS_FILE_PATH \
     --model-type scratch --resume $PRETRAINED_PATH --save-path $RESULTS_PATH \
