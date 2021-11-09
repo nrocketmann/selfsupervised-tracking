@@ -75,6 +75,7 @@ def test(loader, model, args):
             ##################################################################
             # Compute image features (batched for memory efficiency)
             ##################################################################
+            print("start compute features")
             bsize = 5   # minibatch size for computing features
             feats = []
             for b in range(0, imgs.shape[1], bsize):
@@ -126,7 +127,7 @@ def test(loader, model, args):
             ##################################################################
             # Propagate Labels and Save Predictions
             ###################################################################
-
+            
             maps, keypts = [], []
             lbls[0, n_context:] *= 0 
             lbl_map, lbls = lbl_map[0], lbls[0]
