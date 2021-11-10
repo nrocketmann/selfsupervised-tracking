@@ -57,12 +57,12 @@ def main(args, vis):
     with torch.no_grad():
         test_loss = test(val_loader, model, args)
             
-def batched_affinity_fn(key, query, key_indices, n_context, args):
+def batched_affinity_fn(keys, query, key_indices, n_context, args, feats_shape):
     # Make spatial radius mask TODO use torch.sparse
     restrict = utils.MaskedAttention(args.radius, flat=False)
 
     # next line is a ~medium~ malloc, common cause of crashes
-    D = restrict.mask(feats_shape)[None]
+    D = restrict.mask(*feats_shape)[None]
 
     D = D.flatten(-4, -3)
 
@@ -128,7 +128,7 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
         # next line is a large malloc, common cause of crashes
         keys, query = feats[:, :, key_indices], feats[:, :, n_context:]
         feats = None
-        Ws, Is = batched_affinity_fn(feats, key_indices, n_context, args)
+        Ws, Is = batched_affinity_fn(keys, query, key_indices, n_context, args, feats_shape)
         keys, query = None, None
         if torch.cuda.is_available():
             print(time.time()-t03, 'affinity forward, max mem', torch.cuda.max_memory_allocated() / (1024**2))
