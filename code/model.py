@@ -19,8 +19,10 @@ class CRW(nn.Module):
         self.temperature = getattr(args, 'temp', getattr(args, 'temperature', 0.07))
 
         self.encoder = utils.make_encoder(args).to(self.args.device)
+        self.dustbin_encoder = utils.make_dustbin_encoder(args).to(self.args.device)
         self.infer_dims()
         self.selfsim_fc = self.make_head(depth=getattr(args, 'head_depth', 0))
+        self.dustbin_fc = self.make_head(depth=getattr(args, 'head_depth', 0))
 
         self.xent = nn.CrossEntropyLoss(reduction="none")
         self._xent_targets = dict()
@@ -28,7 +30,6 @@ class CRW(nn.Module):
         self.dropout = nn.Dropout(p=self.edgedrop_rate, inplace=False)
         self.featdrop = nn.Dropout(p=self.featdrop_rate, inplace=False)
 
-        self.flip = getattr(args, 'flip', False)
         self.sk_targets = getattr(args, 'sk_targets', False)
         self.vis = vis
 
@@ -133,37 +134,39 @@ class CRW(nn.Module):
             h, w = np.ceil(np.array(x.shape[-2:]) / self.map_scale).astype(np.int)
             return (q, mm) if _N > 1 else (q, q.view(*q.shape[:-1], h, w))
 
+        #q shape (B x C x T x N)
         #################################################################
         # Compute walks 
         #################################################################
         walks = dict()
-        As = self.affinity(q[:, :, :-1], q[:, :, 1:])
-        A12s = [self.stoch_mat(As[:, i], do_dropout=True) for i in range(T-1)]
-
+        As_forward = self.affinity(q[:, :, :-1], q[:, :, 1:])
+        As_backward = self.affinity(q[:, :, 1:][:,:,::-1], q[:, :, :-1][:,:,::-1])
+        A12s = [self.stoch_mat(As_forward[:, i], do_dropout=True) for i in range(T-1)]
+        A21s = [self.stoch_mat(As_backward[:, i], do_dropout=True) for i in range(T - 1)]
+        #each element of A12 is a batch of transition matrices left to right in the video
+        #each element of A21 is a batch of transition matrices going right to left in the vide
+        #first element of A12 will be first frame to second, first element of A21 is last frame to next to last
         #################################################### Palindromes
-        if not self.sk_targets:  
-            A21s = [self.stoch_mat(As[:, i].transpose(-1, -2), do_dropout=True) for i in range(T-1)]
-            AAs = []
-            for i in list(range(1, len(A12s))):
-                g = A12s[:i+1] + A21s[:i+1][::-1]
-                aar = aal = g[0]
-                for _a in g[1:]:
-                    aar, aal = aar @ _a, _a @ aal
+        AAs = []
 
-                AAs.append((f"l{i}", aal) if self.flip else (f"r{i}", aar))
-    
-            for i, aa in AAs:
-                walks[f"cyc {i}"] = [aa, self.xent_targets(aa)]
+        running_product_l = A12s[0]
+        running_product_r = A21s[-1]
+        for i in range(1,len(A12s)):
+            running_product_l = running_product_l @ A12s[i]
+            running_product_r = A21s[-(i+1)] @   running_product_r
+            together = running_product_l @ running_product_r
+            AAs.append((f"l{i}", together))
 
-        #################################################### Sinkhorn-Knopp Target (experimental)
-        else:   
-            a12, at = A12s[0], self.stoch_mat(A[:, 0], do_dropout=False, do_sinkhorn=True)
-            for i in range(1, len(A12s)):
-                a12 = a12 @ A12s[i]
-                at = self.stoch_mat(As[:, i], do_dropout=False, do_sinkhorn=True) @ at
-                with torch.no_grad():
-                    targets = utils.sinkhorn_knopp(at, tol=0.001, max_iter=10, verbose=False).argmax(-1).flatten()
-                walks[f"sk {i}"] = [a12, targets]
+        # for i in list(range(1, len(A12s))):
+        #     g = A12s[:i+1] + A21s[:i+1][::-1]
+        #     aar = aal = g[0]
+        #     for _a in g[1:]:
+        #         aar, aal = aar @ _a, _a @ aal
+        #
+        #     AAs.append((f"l{i}", aal) if self.flip else (f"r{i}", aar))
+
+        for i, aa in AAs:
+            walks[f"cyc {i}"] = [aa, self.xent_targets(aa)]
 
         #################################################################
         # Compute loss 
