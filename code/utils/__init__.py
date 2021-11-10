@@ -323,6 +323,46 @@ def make_encoder(args):
 
     return net
 
+def make_dustbin_encoder(args):
+    model_type = args.dustbin_model_type
+
+    if model_type == 'scratch':
+        net = resnet.resnet18()
+        net.modify(padding='reflect')
+
+    elif model_type == 'scratch_zeropad':
+        net = resnet.resnet18()
+
+    elif model_type == 'imagenet18':
+        net = resnet.resnet18(pretrained=True)
+
+    elif model_type == 'imagenet50':
+        net = resnet.resnet50(pretrained=True)
+
+    elif model_type == 'moco50':
+        net = resnet.resnet50(pretrained=False)
+        net_ckpt = torch.load('moco_v2_800ep_pretrain.pth.tar')
+        net_state = {k.replace('module.encoder_q.', ''):v for k,v in net_ckpt['state_dict'].items() \
+                if 'module.encoder_q' in k}
+        partial_load(net_state, net)
+
+    elif model_type == 'timecycle':
+        net = load_tc_model()
+
+    elif model_type == 'uvc':
+        net = load_uvc_model()
+
+    else:
+        assert False, 'invalid args.model_type'
+
+    if hasattr(net, 'modify'):
+        net.modify(remove_layers=args.remove_layers)
+
+    if 'Conv2d' in str(net):
+        net = From3D(net)
+
+    return net
+
 
 class MaskedAttention(nn.Module):
     '''
