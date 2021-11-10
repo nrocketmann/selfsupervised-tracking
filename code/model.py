@@ -65,7 +65,7 @@ class CRW(nn.Module):
         #     A = self.restrict(A)
 
         return A.squeeze(1) if in_t_dim < 4 else A
-    
+
     def stoch_mat(self, A, zero_diagonal=False, do_dropout=True, do_sinkhorn=False):
         ''' Affinity -> Stochastic Matrix '''
 
@@ -76,14 +76,14 @@ class CRW(nn.Module):
             A[torch.rand_like(A) < self.edgedrop_rate] = -1e20
 
         if do_sinkhorn:
-            return utils.sinkhorn_knopp((A/self.temperature).exp(), 
-                tol=0.01, max_iter=100, verbose=False)
+            return utils.sinkhorn_knopp((A / self.temperature).exp(),
+                                        tol=0.01, max_iter=100, verbose=False)
 
-        return F.softmax(A/self.temperature, dim=-1)
+        return F.softmax(A / self.temperature, dim=-1)
 
     def pixels_to_nodes(self, x):
-        ''' 
-            pixel maps -> node embeddings 
+        '''
+            pixel maps -> node embeddings
             Handles cases where input is a list of patches of images (N>1), or list of whole images (N=1)
 
             Inputs:
@@ -105,26 +105,26 @@ class CRW(nn.Module):
             N, H, W = maps.shape[0] // B, 1, 1
 
         # compute node embeddings by spatially pooling node feature maps
-        feats = maps.sum(-1).sum(-1) / (H*W)
-        feats = self.selfsim_fc(feats.transpose(-1, -2)).transpose(-1,-2)
+        feats = maps.sum(-1).sum(-1) / (H * W)
+        feats = self.selfsim_fc(feats.transpose(-1, -2)).transpose(-1, -2)
         feats = F.normalize(feats, p=2, dim=1)
-    
+
         feats = feats.view(B, N, feats.shape[1], T).permute(0, 2, 3, 1)
-        maps  =  maps.view(B, N, *maps.shape[1:])
+        maps = maps.view(B, N, *maps.shape[1:])
 
         return feats, maps
 
-    def forward(self, x, just_feats=False,):
+    def forward(self, x, just_feats=False, ):
         '''
         Input is B x T x N*C x H x W, where either
            N>1 -> list of patches of images
            N=1 -> list of images
         '''
         B, T, C, H, W = x.shape
-        _N, C = C//3, 3
-    
+        _N, C = C // 3, 3
+
         #################################################################
-        # Pixels to Nodes 
+        # Pixels to Nodes
         #################################################################
         x = x.transpose(1, 2).view(B, _N, C, T, H, W)
         q, mm = self.pixels_to_nodes(x)
@@ -134,26 +134,27 @@ class CRW(nn.Module):
             h, w = np.ceil(np.array(x.shape[-2:]) / self.map_scale).astype(np.int)
             return (q, mm) if _N > 1 else (q, q.view(*q.shape[:-1], h, w))
 
-        #q shape (B x C x T x N)
+        # q shape (B x C x T x N)
         #################################################################
-        # Compute walks 
+        # Compute walks
         #################################################################
         walks = dict()
         As_forward = self.affinity(q[:, :, :-1], q[:, :, 1:])
-        As_backward = self.affinity(q[:, :, 1:][:,:,::-1], q[:, :, :-1][:,:,::-1])
-        A12s = [self.stoch_mat(As_forward[:, i], do_dropout=True) for i in range(T-1)]
+        flippedq = torch.flip(q, [2])
+        As_backward = self.affinity(flippedq[:, :, :-1], flippedq[:, :, 1:])
+        A12s = [self.stoch_mat(As_forward[:, i], do_dropout=True) for i in range(T - 1)]
         A21s = [self.stoch_mat(As_backward[:, i], do_dropout=True) for i in range(T - 1)]
-        #each element of A12 is a batch of transition matrices left to right in the video
-        #each element of A21 is a batch of transition matrices going right to left in the vide
-        #first element of A12 will be first frame to second, first element of A21 is last frame to next to last
+        # each element of A12 is a batch of transition matrices left to right in the video
+        # each element of A21 is a batch of transition matrices going right to left in the vide
+        # first element of A12 will be first frame to second, first element of A21 is last frame to next to last
         #################################################### Palindromes
         AAs = []
 
         running_product_l = A12s[0]
         running_product_r = A21s[-1]
-        for i in range(1,len(A12s)):
+        for i in range(1, len(A12s)):
             running_product_l = running_product_l @ A12s[i]
-            running_product_r = A21s[-(i+1)] @   running_product_r
+            running_product_r = A21s[-(i + 1)] @ running_product_r
             together = running_product_l @ running_product_r
             AAs.append((f"l{i}", together))
 
@@ -169,13 +170,13 @@ class CRW(nn.Module):
             walks[f"cyc {i}"] = [aa, self.xent_targets(aa)]
 
         #################################################################
-        # Compute loss 
+        # Compute loss
         #################################################################
         xents = [torch.tensor([0.]).to(self.args.device)]
         diags = dict()
 
         for name, (A, target) in walks.items():
-            logits = torch.log(A+EPS).flatten(0, -2)
+            logits = torch.log(A + EPS).flatten(0, -2)
             loss = self.xent(logits, target).mean()
             acc = (torch.argmax(logits, dim=-1) == target).float().mean()
             diags.update({f"{H} xent {name}": loss.detach(),
@@ -185,19 +186,19 @@ class CRW(nn.Module):
         #################################################################
         # Visualizations
         #################################################################
-        if (np.random.random() < 0.02) and (self.vis is not None): # and False:
+        if (np.random.random() < 0.02) and (self.vis is not None):  # and False:
             with torch.no_grad():
                 self.visualize_frame_pair(x, q, mm)
-                if _N > 1: # and False:
+                if _N > 1:  # and False:
                     self.visualize_patches(x, q)
 
-        loss = sum(xents)/max(1, len(xents)-1)
-        
+        loss = sum(xents) / max(1, len(xents) - 1)
+
         return q, loss, diags
 
     def xent_targets(self, A):
         B, N = A.shape[:2]
-        key = '%s:%sx%s' % (str(A.device), B,N)
+        key = '%s:%sx%s' % (str(A.device), B, N)
 
         if key not in self._xent_targets:
             I = torch.arange(A.shape[-1])[None].repeat(B, 1)
@@ -219,7 +220,7 @@ class CRW(nn.Module):
         f1, f2 = q[:, :, t1], q[:, :, t2]
 
         A = self.affinity(f1, f2)
-        A1, A2  = self.stoch_mat(A, False, False), self.stoch_mat(A.transpose(-1, -2), False, False)
+        A1, A2 = self.stoch_mat(A, False, False), self.stoch_mat(A.transpose(-1, -2), False, False)
         AA = A1 @ A2
         xent_loss = self.xent(torch.log(AA + EPS).flatten(0, -2), self.xent_targets(AA))
 
