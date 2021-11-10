@@ -43,7 +43,6 @@ def test_args():
 
     # Model Details
     parser.add_argument('--model-type', default='scratch', type=str)
-    parser.add_argument('--dustbin-model-type',default='scratch',type=str)
     parser.add_argument('--head-depth', default=-1, type=int,
                         help='depth of mlp applied after encoder (0 = linear)')
 
@@ -110,9 +109,7 @@ def train_args():
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='start epoch')
     
-
     parser.add_argument( "--save-cache", dest="save_cache",default="", help="Wanna save a dataset?", type=str )
-
     parser.add_argument( "--load-cache", dest="load_cache", help="Where to retrieve the cached dataset?",default="",type=str)
     parser.add_argument( "--data-parallel", dest="data_parallel", help="", action="store_true", )
     parser.add_argument( "--fast-test", dest="fast_test", help="", action="store_true", )
@@ -120,6 +117,7 @@ def train_args():
     parser.add_argument('--name', default='', type=str, help='')
     parser.add_argument('--dropout', default=0, type=float, help='dropout rate on A')
     parser.add_argument('--zero-diagonal', help='always zero diagonal of A', action="store_true", )
+    parser.add_argument('--flip', default=False, help='flip transitions (bug)', action="store_true", )
 
     parser.add_argument('--frame-aug', default='', type=str,
         help='grid or none')
@@ -134,7 +132,6 @@ def train_args():
     parser.add_argument('--server', default='localhost', type=str, help='visdom server')
 
     parser.add_argument('--model-type', default='scratch', type=str, help='scratch | imagenet | moco')
-    parser.add_argument('--dustbin-model-type', default='scratch', type=str)
     parser.add_argument('--optim', default='adam', type=str, help='adam | sgd')
 
     parser.add_argument('--temp', default=0.07,

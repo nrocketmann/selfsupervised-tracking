@@ -49,7 +49,7 @@ class ResNet(torch_resnet.ResNet):
         x = x if self.layer3 is None else self.layer3(x) 
         x = x if self.layer4 is None else self.layer4(x) 
     
-        return x
+        return x        
 
 
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
