@@ -32,6 +32,10 @@ class CRW(nn.Module):
         self.sk_targets = getattr(args, 'sk_targets', False)
         self.vis = vis
 
+        # raul
+        bin_score = torch.nn.Parameter(torch.tensor(1.))
+        self.register_parameter('bin_score', bin_score)
+
     def infer_dims(self):
         in_sz = 256
         dummy = torch.zeros(1, 3, 1, in_sz, in_sz).to(next(self.encoder.parameters()).device)
@@ -59,9 +63,20 @@ class CRW(nn.Module):
         if in_t_dim < 4:  # add in time dimension if not there
             x1, x2 = x1.unsqueeze(-2), x2.unsqueeze(-2)
 
+        # why is m and n different
         A = torch.einsum('bctn,bctm->btnm', x1, x2)
         # if self.restrict is not None:
         #     A = self.restrict(A)
+        
+        # going into dustbin
+        # entropy across m
+        # btn
+        entropy = entropy_func(A,dim = 2)
+        # concatenate dustbin node (m+1 outgoing)
+        # figure out hyper parameter
+        DUSTBIN_WEIGHT = 1/log(len(A,dim = 2))
+        A.cat(entropy * DUSTBIN_WEIGHT,dim = 3) 
+
 
         return A.squeeze(1) if in_t_dim < 4 else A
     
@@ -114,6 +129,7 @@ class CRW(nn.Module):
         return feats, maps
 
     def forward(self, x, just_feats=False,):
+        # TODO: what is N?
         '''
         Input is B x T x N*C x H x W, where either
            N>1 -> list of patches of images
