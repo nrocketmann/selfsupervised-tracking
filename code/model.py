@@ -9,6 +9,7 @@ import utils
 EPS = 1e-20
 
 
+
 class CRW(nn.Module):
     def __init__(self, args, vis=None):
         super(CRW, self).__init__()
@@ -35,6 +36,28 @@ class CRW(nn.Module):
         # raul
         bin_score = torch.nn.Parameter(torch.tensor(1.))
         self.register_parameter('bin_score', bin_score)
+
+    # def our_xent(x, y):
+    #     """ Computes cross entropy between two distributions.
+    #     Input: x: iterabale of N non-negative values
+    #         y: iterabale of N non-negative values
+    #     Returns: scalar
+    #     """
+    #     if np.any(x < 0) or np.any(y < 0):
+    #         raise ValueError('Negative values exist.')
+
+    #     # Force to proper probability mass function.
+    #     x = np.array(x, dtype=np.float)
+    #     y = np.array(y, dtype=np.float)
+    #     x /= np.sum(x)
+    #     y /= np.sum(y)
+
+    #     # Ignore zero 'y' elements.
+    #     mask = y > 0
+    #     x = x[mask]
+    #     y = y[mask]    
+    #     ce = -np.sum(x * np.log(y)) 
+    #     return ce
 
     def infer_dims(self):
         in_sz = 256
@@ -71,13 +94,15 @@ class CRW(nn.Module):
         # going into dustbin
         # entropy across m
         # btn
-        entropy = entropy_func(A,dim = 2)
+        entropy = entropy_func(A,dim = 3)
         # concatenate dustbin node (m+1 outgoing)
         # figure out hyper parameter
-        DUSTBIN_WEIGHT = 1/log(len(A,dim = 2))
-        A.cat(entropy * DUSTBIN_WEIGHT,dim = 3) 
-
-
+        DUSTBIN_WEIGHT = 1/log(size(A,dim=3))
+        # btn(m+1)
+        # btn -> btn1 
+        # [1,2] -> [[1],[2]]
+        # map out negative afinities
+        A.cat(entropy.expand(-1,-1,-1,1) * DUSTBIN_WEIGHT,dim = 3)
         return A.squeeze(1) if in_t_dim < 4 else A
 
     def stoch_mat(self, A, zero_diagonal=False, do_dropout=True, do_sinkhorn=False):
@@ -92,8 +117,9 @@ class CRW(nn.Module):
         if do_sinkhorn:
             return utils.sinkhorn_knopp((A / self.temperature).exp(),
                                         tol=0.01, max_iter=100, verbose=False)
-
-        return F.softmax(A / self.temperature, dim=-1)
+        # prob =  F.softmax(A / self.temperature, dim=-1)[:,:,:,:-1]
+        prob =  F.softmax(A / self.temperature, dim=-1)
+        return prob
 
     def pixels_to_nodes(self, x):
         '''
@@ -128,12 +154,8 @@ class CRW(nn.Module):
 
         return feats, maps
 
-<<<<<<< HEAD
     def forward(self, x, just_feats=False,):
         # TODO: what is N?
-=======
-    def forward(self, x, just_feats=False, ):
->>>>>>> nn-dustbins
         '''
         Input is B x T x N*C x H x W, where either
            N>1 -> list of patches of images
@@ -153,43 +175,11 @@ class CRW(nn.Module):
             h, w = np.ceil(np.array(x.shape[-2:]) / self.map_scale).astype(np.int)
             return (q, mm) if _N > 1 else (q, q.view(*q.shape[:-1], h, w))
 
-<<<<<<< HEAD
-=======
         # q shape (B x C x T x N)
->>>>>>> nn-dustbins
         #################################################################
         # Compute walks
         #################################################################
         walks = dict()
-<<<<<<< HEAD
-        As = self.affinity(q[:, :, :-1], q[:, :, 1:])
-        A12s = [self.stoch_mat(As[:, i], do_dropout=True) for i in range(T-1)]
-
-        #################################################### Palindromes
-        if not self.sk_targets:  
-            A21s = [self.stoch_mat(As[:, i].transpose(-1, -2), do_dropout=True) for i in range(T-1)]
-            AAs = []
-            for i in list(range(1, len(A12s))):
-                g = A12s[:i+1] + A21s[:i+1][::-1]
-                aar = aal = g[0]
-                for _a in g[1:]:
-                    aar, aal = aar @ _a, _a @ aal
-
-                AAs.append((f"l{i}", aal) if self.flip else (f"r{i}", aar))
-    
-            for i, aa in AAs:
-                walks[f"cyc {i}"] = [aa, self.xent_targets(aa)]
-
-        #################################################### Sinkhorn-Knopp Target (experimental)
-        else:   
-            a12, at = A12s[0], self.stoch_mat(A[:, 0], do_dropout=False, do_sinkhorn=True)
-            for i in range(1, len(A12s)):
-                a12 = a12 @ A12s[i]
-                at = self.stoch_mat(As[:, i], do_dropout=False, do_sinkhorn=True) @ at
-                with torch.no_grad():
-                    targets = utils.sinkhorn_knopp(at, tol=0.001, max_iter=10, verbose=False).argmax(-1).flatten()
-                walks[f"sk {i}"] = [a12, targets]
-=======
         As_forward = self.affinity(q[:, :, :-1], q[:, :, 1:])
         flippedq = torch.flip(q, [2])
         As_backward = self.affinity(flippedq[:, :, :-1], flippedq[:, :, 1:])
@@ -219,7 +209,6 @@ class CRW(nn.Module):
 
         for i, aa in AAs:
             walks[f"cyc {i}"] = [aa, self.xent_targets(aa)]
->>>>>>> nn-dustbins
 
         #################################################################
         # Compute loss
