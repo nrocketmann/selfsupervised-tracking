@@ -100,6 +100,7 @@ class CRW(nn.Module):
                 -- 'maps'  (B x N x C x T x H x W), node feature maps
         '''
         B, N, C, T, h, w = x.shape
+        print(x.shape)
         maps = self.encoder(x.flatten(0, 1))
         H, W = maps.shape[-2:]
 
@@ -108,6 +109,7 @@ class CRW(nn.Module):
         if self.featdrop_rate > 0:
             maps = self.featdrop(maps)
             dustbin_maps = self.featdrop(dustbin_maps)
+
 
 
         #We don't do this ever, I think, so I won't include dustbin logic here
@@ -122,7 +124,7 @@ class CRW(nn.Module):
         feats = F.normalize(feats, p=2, dim=1)#shape BN x C x T
 
         #now for dustbin, we want to average over H,W,N
-        dustbin_maps = dustbin_maps.view(B, N, C, T, H, W)
+        dustbin_maps = dustbin_maps.view(B, N, *dustbin_maps.shape[1:])
         dustbin_feat = dustbin_maps.sum(-1).sum(-1).sum(1)/(H*W*N) #now has shape B X C X T
         dustbin_feat = self.dustbin_fc(dustbin_feat.transpose(-1,-2)).transpose(-1, -2) #shape B X C X T
         dustbin_feat = F.normalize(dustbin_feat, p=2, dim=1)#shape B x C x T
@@ -131,7 +133,7 @@ class CRW(nn.Module):
         feats = feats.view(B, N, feats.shape[1], T).permute(0, 2, 3, 1)
         maps = maps.view(B, N, *maps.shape[1:])
 
-        return feats, maps, dustbin_feat, dustbin_maps
+        return feats, maps, dustbin_feat
 
     def forward(self, x, just_feats=False, ):
         '''
@@ -146,7 +148,7 @@ class CRW(nn.Module):
         # Pixels to Nodes
         #################################################################
         x = x.transpose(1, 2).view(B, _N, C, T, H, W)
-        q, mm, dustbinq, dustbinmm = self.pixels_to_nodes(x)
+        q, mm, dustbinq = self.pixels_to_nodes(x)
         B, C, T, N = q.shape
 
         #again, I don't think this ever happens, so I'm not going to work the dustbins in here
