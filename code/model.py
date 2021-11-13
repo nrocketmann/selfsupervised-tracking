@@ -112,11 +112,14 @@ class CRW(nn.Module):
 
 
 
-        #We don't do this ever, I think, so I won't include dustbin logic here
+        #der this does happen so I have to dustbin-ify things here too
         if N == 1:  # flatten single image's feature map to get node feature 'maps'
             maps = maps.permute(0, -2, -1, 1, 2).contiguous()
             maps = maps.view(-1, *maps.shape[3:])[..., None, None]
             N, H, W = maps.shape[0] // B, 1, 1
+
+            dustbin_maps = dustbin_maps.permute(0, -2, -1, 1, 2).contiguous()
+            dustbin_maps = dustbin_maps.view(-1, *dustbin_maps.shape[3:])[..., None, None]
 
         # compute node embeddings by spatially pooling node feature maps
         feats = maps.sum(-1).sum(-1) / (H * W) #shape BN x C x T
