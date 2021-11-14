@@ -98,6 +98,7 @@ class CRW(nn.Module):
 
         # why is m and n different
         A = torch.einsum('bctn,bctm->btnm', x1[:,:,:,:-1], x2[:,:,:,:-1])
+        print(A.shape())
         # if self.restrict is not None:
         #     A = self.restrict(A)
         
