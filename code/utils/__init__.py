@@ -324,7 +324,8 @@ def make_encoder(args):
     return net
 
 def make_dustbin_encoder(args):
-    model_type = args.dustbin_model_type
+    # model_type = args.dustbin_model_type
+    model_type = args.model_type
 
     if model_type == 'scratch':
         net = resnet.resnet18()
