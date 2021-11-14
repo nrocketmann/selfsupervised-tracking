@@ -89,9 +89,7 @@ class CRW(nn.Module):
         for i in range(x.size()[0]):
             for j in range(x.size()[1]):
                 for k in range(x.size()[2]):
-                    print(x.size())
                     entropy = Categorical(probs = x[i,j,k]).entropy()
-                    print(entropy.size())
                     out[:,:,i] = entropy
         return out
 
@@ -116,7 +114,7 @@ class CRW(nn.Module):
         # btn -> btn1 
         # [1,2] -> [[1],[2]]
         # map out negative afinities
-        A.cat(entropy.expand(-1,-1,-1,1) * DUSTBIN_WEIGHT,dim = 3)
+        A = torch.cat([A, entropy.expand(-1,-1,-1,1) * DUSTBIN_WEIGHT],dim = 3)
         dustaff = -A.sum(-2).unsqueeze(2) #shape B, T,1, N+1	
         A = torch.cat([A, dustaff],dim=2) #shape B,T, N+1, N+1
         #dustbin to dustbin mapping should be 0
