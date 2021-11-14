@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
-
+import math
 import numpy as np
 import utils
 
@@ -96,10 +96,10 @@ class CRW(nn.Module):
         # going into dustbin
         # entropy across m
         # btn
-        entropy = entropy_func(A,dim = 3)
+        entropy = A.entropy(dim = 3)
         # concatenate dustbin node (m+1 outgoing)
         # figure out hyper parameter
-        DUSTBIN_WEIGHT = 1/log(size(A,dim=3))
+        DUSTBIN_WEIGHT = 1/math.log(A.size(dim=3))
         # btn(m+1)
         # btn -> btn1 
         # [1,2] -> [[1],[2]]
