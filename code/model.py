@@ -87,6 +87,7 @@ class CRW(nn.Module):
     def entropy(self, x):
         out = torch.empty(1,1,x.size()[2])
         for i in range(x.size()[2]):
+            print(x.size())
             entropy = Categorical(probs = x[:,:,i]).entropy()
             print(entropy.size())
             out[:,:,i] = entropy
