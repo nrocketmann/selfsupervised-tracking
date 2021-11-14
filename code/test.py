@@ -59,11 +59,14 @@ def main(args, vis):
             
 def batched_affinity_fn(feats, dustbin_feats, key_indices, n_context, args):
     # next line is a large alloc, common cause of crashes
-    print(key_indices)
-    print(n_context)
+
     keys, query = feats[:, :, key_indices], feats[:, :, n_context:]
-    print(keys.shape)
-    print(query.shape)
+    #keys are context frames, query is target frame
+    #shapes:
+    # keys: 1, C, vidlen, num context frames, H, W
+    # query: 1, C, vidlen, H, W
+    # dustbin targets: 1, C, vidlen
+    dustbin_targets = dustbin_feats[:,:,n_context:]
 
 
     # Make spatial radius mask TODO use torch.sparse
@@ -80,7 +83,7 @@ def batched_affinity_fn(feats, dustbin_feats, key_indices, n_context, args):
     keys, query = keys.flatten(-2), query.flatten(-2)
 
     print('computing affinity')
-    Ws, Is = test_utils.mem_efficient_batched_affinity(query, keys, D, 
+    Ws, Is = test_utils.mem_efficient_batched_affinity(query, keys, dustbin_targets, D,
                 args.temperature, args.topk, args.long_mem, args.device)
     # Ws, Is = test_utils.batched_affinity(query, keys, D, 
     #             args.temperature, args.topk, args.long_mem, args.device)
