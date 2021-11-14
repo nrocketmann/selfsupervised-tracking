@@ -5,6 +5,7 @@ import torchvision
 import math
 import numpy as np
 import utils
+from torch.distributions import Categorical
 
 EPS = 1e-20
 
@@ -83,6 +84,13 @@ class CRW(nn.Module):
         mask = (torch.eye(A.shape[-1]).unsqueeze(0).repeat(A.shape[0], 1, 1).bool() < 1).float().cuda()
         return A * mask
 
+    def entropy(self, x):
+        out = torch.empty(1,1,x[2])
+        for i in range(x[2]):
+            entropy = Categorical(probs = x[:,:,i]).entropy()
+            out[:,:,i] = entropy
+        return out
+
     def affinity(self, x1, x2):
         in_t_dim = x1.ndim
         if in_t_dim < 4:  # add in time dimension if not there
@@ -96,7 +104,7 @@ class CRW(nn.Module):
         # going into dustbin
         # entropy across m
         # btn
-        entropy = A.entropy(dim = 3)
+        entropy = entropy(A)
         # concatenate dustbin node (m+1 outgoing)
         # figure out hyper parameter
         DUSTBIN_WEIGHT = 1/math.log(A.size(dim=3))
