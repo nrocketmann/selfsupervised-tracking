@@ -106,7 +106,8 @@ class CRW(nn.Module):
         # going into dustbin
         # entropy across m
         # btn
-        entropy = self.entropy(A)
+        e = self.entropy(A)[:,:,:,None]
+        print(e.size())
         # concatenate dustbin node (m+1 outgoing)
         # figure out hyper parameter
         DUSTBIN_WEIGHT = 1/math.log(A.size(dim=3))
@@ -114,7 +115,7 @@ class CRW(nn.Module):
         # btn -> btn1 
         # [1,2] -> [[1],[2]]
         # map out negative afinities
-        A = torch.cat([A, entropy.expand(-1,-1,-1,1) * DUSTBIN_WEIGHT],dim = 3)
+        A = torch.cat([A, e * DUSTBIN_WEIGHT],dim = 3)
         dustaff = -A.sum(-2).unsqueeze(2) #shape B, T,1, N+1	
         A = torch.cat([A, dustaff],dim=2) #shape B,T, N+1, N+1
         #dustbin to dustbin mapping should be 0
