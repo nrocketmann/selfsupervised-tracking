@@ -139,28 +139,43 @@ class CRW(nn.Module):
                 -- 'maps'  (B x N x C x T x H x W), node feature maps
         '''
         B, N, C, T, h, w = x.shape
+
         maps = self.encoder(x.flatten(0, 1))
         H, W = maps.shape[-2:]
+        dustbin_maps = self.dustbin_encoder(x.flatten(0,1))
+
         dustbin_maps = self.dustbin_encoder(x.flatten(0,1))
 
         if self.featdrop_rate > 0:
             maps = self.featdrop(maps)
             dustbin_maps = self.featdrop(dustbin_maps)
 
+
+        #der this does happen so I have to dustbin-ify things here too
         if N == 1:  # flatten single image's feature map to get node feature 'maps'
             maps = maps.permute(0, -2, -1, 1, 2).contiguous()
             maps = maps.view(-1, *maps.shape[3:])[..., None, None]
             N, H, W = maps.shape[0] // B, 1, 1
 
+            dustbin_maps = dustbin_maps.permute(0, -2, -1, 1, 2).contiguous()
+            dustbin_maps = dustbin_maps.view(-1, *dustbin_maps.shape[3:])[..., None, None]
+
         # compute node embeddings by spatially pooling node feature maps
-        feats = maps.sum(-1).sum(-1) / (H * W)
-        feats = self.selfsim_fc(feats.transpose(-1, -2)).transpose(-1, -2)
-        feats = F.normalize(feats, p=2, dim=1)
+        feats = maps.sum(-1).sum(-1) / (H * W) #shape BN x C x T
+        feats = self.selfsim_fc(feats.transpose(-1, -2)).transpose(-1, -2) #shape BN x newC x T
+        feats = F.normalize(feats, p=2, dim=1)#shape BN x C x T
+
+        #now for dustbin, we want to average over H,W,N
+        dustbin_maps = dustbin_maps.view(B, N, *dustbin_maps.shape[1:])
+        dustbin_feat = dustbin_maps.sum(-1).sum(-1).sum(1)/(H*W*N) #now has shape B X C X T
+        dustbin_feat = self.dustbin_fc(dustbin_feat.transpose(-1,-2)).transpose(-1, -2) #shape B X C X T
+        dustbin_feat = F.normalize(dustbin_feat, p=2, dim=1)#shape B x C x T
+
 
         feats = feats.view(B, N, feats.shape[1], T).permute(0, 2, 3, 1)
         maps = maps.view(B, N, *maps.shape[1:])
 
-        return feats, maps
+        return feats, maps, dustbin_feat
 
     def forward(self, x, just_feats=False,):
         # TODO: what is N?
@@ -176,14 +191,18 @@ class CRW(nn.Module):
         # Pixels to Nodes
         #################################################################
         x = x.transpose(1, 2).view(B, _N, C, T, H, W)
-        q, mm = self.pixels_to_nodes(x)
+        q, mm, dustbinq = self.pixels_to_nodes(x)
         B, C, T, N = q.shape
 
+        #again, I don't think this ever happens, so I'm not going to work the dustbins in here
         if just_feats:
             h, w = np.ceil(np.array(x.shape[-2:]) / self.map_scale).astype(np.int)
             return (q, mm) if _N > 1 else (q, q.view(*q.shape[:-1], h, w))
 
+
         # q shape (B x C x T x N)
+        # dustbinq shape (B x C x T)
+        q = torch.cat([q, dustbinq.view(B,C,T,1)],dim=-1)
         #################################################################
         # Compute walks
         #################################################################

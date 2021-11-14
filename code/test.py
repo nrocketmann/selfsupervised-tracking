@@ -57,9 +57,16 @@ def main(args, vis):
     with torch.no_grad():
         test_loss = test(val_loader, model, args)
             
-def batched_affinity_fn(feats, key_indices, n_context, args):
+def batched_affinity_fn(feats, dustbin_feats, key_indices, n_context, args):
     # next line is a large alloc, common cause of crashes
+
     keys, query = feats[:, :, key_indices], feats[:, :, n_context:]
+    #keys are context frames, query is target frame
+    #shapes:
+    # keys: 1, C, vidlen, num context frames, H, W
+    # query: 1, C, vidlen, H, W
+    # dustbin targets: 1, C, vidlen
+    dustbin_targets = dustbin_feats[:,:,n_context:]
 
 
     # Make spatial radius mask TODO use torch.sparse
@@ -76,7 +83,7 @@ def batched_affinity_fn(feats, key_indices, n_context, args):
     keys, query = keys.flatten(-2), query.flatten(-2)
 
     print('computing affinity')
-    Ws, Is = test_utils.mem_efficient_batched_affinity(query, keys, D, 
+    Ws, Is = test_utils.mem_efficient_batched_affinity(query, keys, dustbin_targets, D,
                 args.temperature, args.topk, args.long_mem, args.device)
     # Ws, Is = test_utils.batched_affinity(query, keys, D, 
     #             args.temperature, args.topk, args.long_mem, args.device)
@@ -100,13 +107,23 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
         print("start compute features")
         bsize = 5   # minibatch size for computing features
         feats = []
+        dustbin_feats = []
+        #imgs has shape 1, vid length, C, H, W
+        #They use their funky From3D thing, that's why the 1,2 transpose happens
         for b in range(0, imgs.shape[1], bsize):
-            feat = model.encoder(imgs[:, b:b+bsize].transpose(1,2).to(args.device))
+            feat = model.encoder(imgs[:, b:b+bsize].transpose(1,2).to(args.device)) #shape 1, C, bsize, H, W
+            H,W = feat.shape[-2:]
+            dustbin_feat = model.dustbin_encoder(imgs[:, b:b+bsize].transpose(1,2).to(args.device)).sum(-1).sum(-1)/(H*W)
+            #dustbin_feat has shape 1, C, bsize
             feats.append(feat.cpu())
+            dustbin_feats.append(dustbin_feat)
         feats = torch.cat(feats, dim=2).squeeze(1)
+        dustbin_feats = torch.cat(dustbin_feats, dim=2) #shape 1, C, vidlen
 
         if not args.no_l2:
             feats = torch.nn.functional.normalize(feats, dim=1)
+            dustbin_feats = torch.nn.functional.normalize(dustbin_feats, dim=1)
+
 
         print('computed features', time.time()-t00)
 
@@ -126,7 +143,7 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
         # Prepare source (keys) and target (query) frame features
         key_indices = test_utils.context_index_bank(n_context, args.long_mem, N - n_context)
         key_indices = torch.cat(key_indices, dim=-1)
-        Ws, Is = batched_affinity_fn(feats, key_indices, n_context, args)
+        Ws, Is = batched_affinity_fn(feats, dustbin_feats, key_indices, n_context, args)
 
         if torch.cuda.is_available():
             print(time.time()-t03, 'affinity forward, max mem', torch.cuda.max_memory_allocated() / (1024**2))

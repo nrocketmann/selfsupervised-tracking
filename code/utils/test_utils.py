@@ -138,22 +138,28 @@ def context_index_bank(n_context, long_mem, N):
     return ll + ss
 
 
-def mem_efficient_batched_affinity(query, keys, mask, temperature, topk, long_mem, device):
+def mem_efficient_batched_affinity(query, keys, dustbin_targets, mask, temperature, topk, long_mem, device):
     '''
     Mini-batched computation of affinity, for memory efficiency
     '''
     bsize, pbsize = 2, 100 #keys.shape[2] // 2
     Ws, Is = [], []
-
+    # keys: 1, C, vidlen, num context frames, HW
+    # query: 1, C, vidlen, HW
+    # dustbin targets: 1, C, vidlen
     for b in range(0, keys.shape[2], bsize):
         _k, _q = keys[:, :, b:b+bsize].to(device), query[:, :, b:b+bsize].to(device)
         w_s, i_s = [], []
 
         for pb in range(0, _k.shape[-1], pbsize):
-            A = torch.einsum('ijklm,ijkn->iklmn', _k, _q[..., pb:pb+pbsize]) 
+            A = torch.einsum('ijklm,ijkn->iklmn', _k, _q[..., pb:pb+pbsize])  #shape 1, vidlen, context frames, HW, HW
             A[0, :, len(long_mem):] += mask[..., pb:pb+pbsize].to(device)
+            dustbin_aff = torch.einsum('ijklm,ijk->iklm', _k, dustbin_targets[..., pb:pb+pbsize]) #shape 1, vidlen, context frames, HW
+            A = torch.cat([A, dustbin_aff.unsqueeze(-1)],dim=-1 )
 
             _, N, T, h1w1, hw = A.shape
+            # shape 1, vidlen, context frames, HW, HW+1
+
             A = A.view(N, T*h1w1, hw)
             A /= temperature
 

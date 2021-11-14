@@ -4,8 +4,10 @@ import torch
 import random
 import utils
 
+
 def common_args(parser):
     return parser
+
 
 def test_args():
     # Parse arguments
@@ -18,7 +20,7 @@ def test_args():
                         help='path to latest checkpoint (default: none)')
     parser.add_argument('--manualSeed', type=int, default=777, help='manual seed')
 
-    #Device options
+    # Device options
     parser.add_argument('--gpu-id', default='0', type=str,
                         help='id(s) for CUDA_VISIBLE_DEVICES')
     parser.add_argument('--batchSize', default=1, type=int,
@@ -43,6 +45,7 @@ def test_args():
 
     # Model Details
     parser.add_argument('--model-type', default='scratch', type=str)
+    parser.add_argument('--dustbin-model-type', default='scratch', type=str)
     parser.add_argument('--head-depth', default=-1, type=int,
                         help='depth of mlp applied after encoder (0 = linear)')
 
@@ -76,11 +79,12 @@ def test_args():
 
     return args
 
+
 def train_args():
     parser = argparse.ArgumentParser(description='Video Walk Training')
 
     parser.add_argument('--data-path', default='/data/ajabri/kinetics/',
-        help='/home/ajabri/data/places365_standard/train/ | /data/ajabri/kinetics/')
+                        help='/home/ajabri/data/places365_standard/train/ | /data/ajabri/kinetics/')
     parser.add_argument('--device', default='cuda', help='device')
     parser.add_argument('--clip-len', default=8, type=int, metavar='N',
                         help='number of frames per clip')
@@ -105,24 +109,27 @@ def train_args():
     parser.add_argument('--print-freq', default=10, type=int, help='print frequency')
     parser.add_argument('--output-dir', default='auto', help='path where to save')
     parser.add_argument('--resume', default='', help='resume from checkpoint')
-    parser.add_argument('--partial-reload', default='', help='reload net from checkpoint, ignoring keys that are not in current model')
+    parser.add_argument('--partial-reload', default='',
+                        help='reload net from checkpoint, ignoring keys that are not in current model')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='start epoch')
-    
-    parser.add_argument( "--save-cache", dest="save_cache",default="", help="Wanna save a dataset?", type=str )
-    parser.add_argument( "--load-cache", dest="load_cache", help="Where to retrieve the cached dataset?",default="",type=str)
-    parser.add_argument( "--data-parallel", dest="data_parallel", help="", action="store_true", )
-    parser.add_argument( "--fast-test", dest="fast_test", help="", action="store_true", )
+
+    parser.add_argument("--save-cache", dest="save_cache", default="", help="Wanna save a dataset?", type=str)
+
+    parser.add_argument("--load-cache", dest="load_cache", help="Where to retrieve the cached dataset?", default="",
+                        type=str)
+    parser.add_argument("--data-parallel", dest="data_parallel", help="", action="store_true", )
+    parser.add_argument("--fast-test", dest="fast_test", help="", action="store_true", )
 
     parser.add_argument('--name', default='', type=str, help='')
     parser.add_argument('--dropout', default=0, type=float, help='dropout rate on A')
     parser.add_argument('--zero-diagonal', help='always zero diagonal of A', action="store_true", )
     parser.add_argument('--flip', default=False, help='flip transitions (bug)', action="store_true", )
 
-    parser.add_argument('--frame-aug', default='', type=str,
-        help='grid or none')
+    parser.add_argument('--frame-aug', default='grid', type=str,
+                        help='grid or none')
     parser.add_argument('--frame-transforms', default='crop', type=str,
-        help='combine, ex: crop, cj, flip')
+                        help='combine, ex: crop, cj, flip')
 
     parser.add_argument('--frame-skip', default=8, type=int, help='kinetics: fps | others: skip between frames')
     parser.add_argument('--img-size', default=256, type=int)
@@ -135,7 +142,7 @@ def train_args():
     parser.add_argument('--optim', default='adam', type=str, help='adam | sgd')
 
     parser.add_argument('--temp', default=0.07,
-        type=float, help='softmax temperature when computing affinity')
+                        type=float, help='softmax temperature when computing affinity')
     parser.add_argument('--featdrop', default=0.0, type=float, help='"regular" dropout on features')
     parser.add_argument('--restrict', default=-1, type=int, help='restrict attention')
     parser.add_argument('--head-depth', default=0, type=int, help='depth of head mlp; 0 is linear')
@@ -144,9 +151,9 @@ def train_args():
 
     # sinkhorn-knopp ideas (experimental)
     parser.add_argument('--sk-align', default=False, action='store_true',
-        help='use sinkhorn-knopp to align matches between frames')
+                        help='use sinkhorn-knopp to align matches between frames')
     parser.add_argument('--sk-targets', default=False, action='store_true',
-        help='use sinkhorn-knopp to obtain targets, by taking the argmax')
+                        help='use sinkhorn-knopp to obtain targets, by taking the argmax')
 
     args = parser.parse_args()
 
@@ -157,10 +164,11 @@ def train_args():
 
     if args.output_dir == 'auto':
         keys = {
-            'dropout':'drop', 'clip_len': 'len', 'frame_transforms': 'ftrans', 'frame_aug':'faug', 
-            'optim':'optim', 'temp':'temp', 'featdrop':'fdrop', 'lr':'lr', 'head_depth':'mlp'
+            'dropout': 'drop', 'clip_len': 'len', 'frame_transforms': 'ftrans', 'frame_aug': 'faug',
+            'optim': 'optim', 'temp': 'temp', 'featdrop': 'fdrop', 'lr': 'lr', 'head_depth': 'mlp'
         }
-        name = '-'.join(["%s%s" % (keys[k], getattr(args, k) if not isinstance(getattr(args, k), list) else '-'.join([str(s) for s in getattr(args, k)])) for k in keys])
+        name = '-'.join(["%s%s" % (keys[k], getattr(args, k) if not isinstance(getattr(args, k), list) else '-'.join(
+            [str(s) for s in getattr(args, k)])) for k in keys])
         args.output_dir = "checkpoints/%s_%s/" % (args.name, name)
 
         import datetime
