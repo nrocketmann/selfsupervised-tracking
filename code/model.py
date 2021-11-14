@@ -21,7 +21,9 @@ class CRW(nn.Module):
 
         self.encoder = utils.make_encoder(args).to(self.args.device)
         self.infer_dims()
-        self.selfsim_fc = self.make_head(depth=getattr(args, 'head_depth', 0))
+        self.selfsim_fc = self.make_head(depth=getattr(args, 'head_depth', 0))	
+        self.dustbin_encoder = utils.make_dustbin_encoder(args).to(self.args.device)
+        self.dustbin_fc = self.make_head(depth=getattr(args, 'head_depth', 0))	
 
         self.xent = nn.CrossEntropyLoss(reduction="none")
         self._xent_targets = dict()
@@ -87,7 +89,7 @@ class CRW(nn.Module):
             x1, x2 = x1.unsqueeze(-2), x2.unsqueeze(-2)
 
         # why is m and n different
-        A = torch.einsum('bctn,bctm->btnm', x1, x2)
+        A = torch.einsum('bctn,bctm->btnm', x1[:,:,:,:-1], x2[:,:,:,:-1])
         # if self.restrict is not None:
         #     A = self.restrict(A)
         
@@ -103,6 +105,10 @@ class CRW(nn.Module):
         # [1,2] -> [[1],[2]]
         # map out negative afinities
         A.cat(entropy.expand(-1,-1,-1,1) * DUSTBIN_WEIGHT,dim = 3)
+        dustaff = -A.sum(-2).unsqueeze(2) #shape B, T,1, N+1	
+        A = torch.cat([A, dustaff],dim=2) #shape B,T, N+1, N+1
+        #dustbin to dustbin mapping should be 0
+        A[:,:,-1,-1]=0
         return A.squeeze(1) if in_t_dim < 4 else A
 
     def stoch_mat(self, A, zero_diagonal=False, do_dropout=True, do_sinkhorn=False):
@@ -135,9 +141,11 @@ class CRW(nn.Module):
         B, N, C, T, h, w = x.shape
         maps = self.encoder(x.flatten(0, 1))
         H, W = maps.shape[-2:]
+        dustbin_maps = self.dustbin_encoder(x.flatten(0,1))
 
         if self.featdrop_rate > 0:
             maps = self.featdrop(maps)
+            dustbin_maps = self.featdrop(dustbin_maps)
 
         if N == 1:  # flatten single image's feature map to get node feature 'maps'
             maps = maps.permute(0, -2, -1, 1, 2).contiguous()
