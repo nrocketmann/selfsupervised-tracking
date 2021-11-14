@@ -100,7 +100,7 @@ class CRW(nn.Module):
                 -- 'maps'  (B x N x C x T x H x W), node feature maps
         '''
         B, N, C, T, h, w = x.shape
-        print(x.shape)
+
         maps = self.encoder(x.flatten(0, 1))
         H, W = maps.shape[-2:]
 
