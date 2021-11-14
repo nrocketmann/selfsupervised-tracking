@@ -85,8 +85,8 @@ class CRW(nn.Module):
         return A * mask
 
     def entropy(self, x):
-        out = torch.empty(1,1,x[2])
-        for i in range(x[2]):
+        out = torch.empty(1,1,x.size()[2])
+        for i in range(x.size()[2]):
             entropy = Categorical(probs = x[:,:,i]).entropy()
             out[:,:,i] = entropy
         return out
@@ -98,7 +98,6 @@ class CRW(nn.Module):
 
         # why is m and n different
         A = torch.einsum('bctn,bctm->btnm', x1[:,:,:,:-1], x2[:,:,:,:-1])
-        print(A)
         # if self.restrict is not None:
         #     A = self.restrict(A)
         
