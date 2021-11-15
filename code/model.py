@@ -109,7 +109,8 @@ class CRW(nn.Module):
 
         dustbin_input = torch.cat([x_input[:,:,:-1],x_input[:,:,1:]],dim=1) #stack last 2 frames on channel axis
         dustbin_maps = self.dustbin_encoder(dustbin_input)
-        dustbin_maps = torch.cat([torch.zeros([B*N, C, 1, H, W]), dustbin_maps],dim=2)
+        dustbin_input = torch.cat([x_input[:, :, :-1], x_input[:, :, 1:]], dim=1)  # stack last 2 frames on channel axis
+        dustbin_maps = self.dustbin_encoder(dustbin_input)
 
         if self.featdrop_rate > 0:
             maps = self.featdrop(maps)
