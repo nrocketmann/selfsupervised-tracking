@@ -154,7 +154,7 @@ def mem_efficient_batched_affinity(query, keys, dustbin_targets, mask, temperatu
         for pb in range(0, _k.shape[-1], pbsize):
             A = torch.einsum('ijklm,ijkn->iklmn', _k, _q[..., pb:pb+pbsize])  #shape 1, vidlen, context frames, HW, HW
             A[0, :, len(long_mem):] += mask[..., pb:pb+pbsize].to(device)
-            dustbin_aff = torch.einsum('ijklm,ijk->iklm', _k, dustbin_targets[..., pb:pb+pbsize]) #shape 1, vidlen, context frames, HW
+            dustbin_aff = torch.einsum('ijklm,ijkn->iklmn', _k, dustbin_targets[..., pb:pb+pbsize].unsqueeze(-1).to(device)) #shape 1, vidlen, context frames, HW
             A = torch.cat([A, dustbin_aff.unsqueeze(-1)],dim=-1 )
 
             _, N, T, h1w1, hw = A.shape

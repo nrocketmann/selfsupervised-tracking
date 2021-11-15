@@ -69,6 +69,7 @@ class CRW(nn.Module):
 
         #now for affinities out of dustbin
         dustaff = -A.sum(-2).unsqueeze(2) #shape B, T,1, N+1
+        dustaff[:,:,:,-1] = 0 #get rid of dustbin-to-dustbin connection
         A = torch.cat([A, dustaff],dim=2) #shape B,T, N+1, N+1
 
         return A.squeeze(1) if in_t_dim < 4 else A
