@@ -113,7 +113,15 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
         for b in range(0, imgs.shape[1], bsize):
             feat = model.encoder(imgs[:, b:b+bsize].transpose(1,2).to(args.device)) #shape 1, C, bsize, H, W
             H,W = feat.shape[-2:]
-            dustbin_feat = model.dustbin_encoder(imgs[:, b:b+bsize].transpose(1,2).to(args.device)).sum(-1).sum(-1)/(H*W)
+            if b==0: #special case because dustbin has to be padded here
+                dustbin_input = torch.cat([imgs[:,b:b+bsize-1], imgs[:,b+1:b+bsize]],dim=2)
+            else:
+                dustbin_input = torch.cat([imgs[:, b-1:b + bsize - 1], imgs[:, b:b + bsize]], dim=2)
+
+            dustbin_feat = model.dustbin_encoder(dustbin_input.transpose(1,2).to(args.device)).sum(-1).sum(-1)/(H*W)
+            if b==0: #pad with zeros on the left
+                dustbin_feat = torch.cat([torch.zeros([dustbin_feat.shape[:-1],1]),dustbin_feat],dim=-1)
+
             #dustbin_feat has shape 1, C, bsize
             feats.append(feat.cpu())
             dustbin_feats.append(dustbin_feat)

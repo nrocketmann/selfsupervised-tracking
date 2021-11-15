@@ -17,7 +17,7 @@ class ResNet(torch_resnet.ResNet):
     def __init__(self, *args, **kwargs):
         super(ResNet, self).__init__(*args, **kwargs)
 
-    def modify(self, remove_layers=[], padding=''):
+    def modify(self, remove_layers=[], padding='',is_dustbin=False):
         # Set stride of layer3 and layer 4 to 1 (from 2)
         filter_layers = lambda x: [l for l in x if getattr(self, l) is not None]
         for layer in filter_layers(['layer3', 'layer4']):
@@ -37,6 +37,11 @@ class ResNet(torch_resnet.ResNet):
         remove_layers += ['fc', 'avgpool']
         for layer in filter_layers(remove_layers):
             setattr(self, layer, None)
+        #take in two frames
+        if is_dustbin:
+            for m in getattr(self,'layer1'):
+                if isinstance(m, torch.nn.Conv2d):
+                    m.in_channels = m.in_channels * 2
 
     def forward(self, x):
         x = self.conv1(x)

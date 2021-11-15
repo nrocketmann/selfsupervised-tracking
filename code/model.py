@@ -102,10 +102,14 @@ class CRW(nn.Module):
         '''
         B, N, C, T, h, w = x.shape
 
-        maps = self.encoder(x.flatten(0, 1))
+        x_input = x.flatten(0,1)
+        maps = self.encoder(x_input)
         H, W = maps.shape[-2:]
 
-        dustbin_maps = self.dustbin_encoder(x.flatten(0,1))
+
+        dustbin_input = torch.cat([x_input[:,:,:-1],x_input[:,:,1:]],dim=1) #stack last 2 frames on channel axis
+        dustbin_maps = self.dustbin_encoder(dustbin_input)
+        dustbin_maps = torch.cat([torch.zeros([B*N, C, 1, H, W]), dustbin_maps],dim=2)
 
         if self.featdrop_rate > 0:
             maps = self.featdrop(maps)
