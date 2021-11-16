@@ -106,6 +106,7 @@ class CRW(nn.Module):
         # compute node embeddings by spatially pooling node feature maps
         feats = maps.sum(-1).sum(-1) / (H*W)
         feats = self.selfsim_fc(feats.transpose(-1, -2)).transpose(-1,-2)
+
         feats = F.normalize(feats, p=2, dim=1)
     
         feats = feats.view(B, N, feats.shape[1], T).permute(0, 2, 3, 1)
@@ -137,7 +138,12 @@ class CRW(nn.Module):
         # Compute walks 
         #################################################################
         walks = dict()
-        As = self.affinity(q[:, :, :-1], q[:, :, 1:])
+        print(q.shape)
+        print("!!!!!!!")
+        # feats1,2 have shape (B, T-1, N, n) where n is the number of patches, e.g. n=H*W
+        feats1, feats2 = q[:, :, :-1], q[:, :, 1:]
+        feats1, feats2 = self.graph_matching(feats1, feats2)
+        As = self.affinity(feats1, feats_2)
         A12s = [self.stoch_mat(As[:, i], do_dropout=True) for i in range(T-1)]
 
         #################################################### Palindromes

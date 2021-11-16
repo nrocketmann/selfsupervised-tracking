@@ -97,8 +97,9 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
         bsize = 5   # minibatch size for computing features
         feats = []
         for b in range(0, imgs.shape[1], bsize):
-            
+            print("pre enc", imgs[:, b:b+bsize].shape)
             feat = model.encoder(imgs[:, b:b+bsize].transpose(1,2).to(args.device))
+            print("feat", feat.shape)
             feats.append(feat.cpu())
         feats = torch.cat(feats, dim=2).squeeze(1)
 
