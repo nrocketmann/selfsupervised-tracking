@@ -56,11 +56,22 @@ class GraphMatching(nn.Module):
         return hidden.transpose(1, 2)
 
     def forward(self, nodes1, nodes2):
+        # nodes1,2 have shape (B, C, T-1, N) where N is the number of patches, e.g. N=H*W
+        print("start:", nodes1.shape, nodes2.shape)
+        B, C, t, N = nodes1.shape
+        B, C, t, M = nodes2.shape
+        nodes1 = nodes1.permute(0, 2, 3, 1).flatten(0, 1)
+        nodes2 = nodes2.permtue(0, 2, 3, 1).flatten(0, 1)
+
+        print("layer0:", nodes1.shape, nodes2.shape)
         for layer in range(self.num_layers):
             next_nodes1 = self.mp[layer](nodes2, nodes1)
             nodes2 = self.mp[layer](nodes1, nodes2)
             nodes1 = next_nodes1
         
+        nodes1 = nodes1.view(B, t, N, C).permute(0, 2, 3, 1)
+        nodes2 = nodes2.view(B, t, M, C).permute(0, 2, 3, 1)
+        print("final:", nodes1.shape, nodes2.shape)
         return nodes1, nodes2
 
 

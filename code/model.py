@@ -6,6 +6,7 @@ import torchvision
 import numpy as np
 import utils
 
+from graph import GraphMatching
 EPS = 1e-20
 
 
@@ -31,6 +32,12 @@ class CRW(nn.Module):
         self.flip = getattr(args, 'flip', False)
         self.sk_targets = getattr(args, 'sk_targets', False)
         self.vis = vis
+
+        num_layers = 1
+        hidden_dim = 128
+        num_heads = 4
+        FF_dim = 128
+        self.graph_matching = GraphMatching(num_layers, hidden_dim, num_heads, FF_dim)
 
     def infer_dims(self):
         in_sz = 256
@@ -120,7 +127,6 @@ class CRW(nn.Module):
            N>1 -> list of patches of images
            N=1 -> list of images
         '''
-        print(x.shape)
         B, T, C, H, W = x.shape
         _N, C = C//3, 3
     
@@ -139,8 +145,7 @@ class CRW(nn.Module):
         # Compute walks 
         #################################################################
         walks = dict()
-        print(q.shape)
-        print("!!!!!!!")
+
         # feats1,2 have shape (B, C, T-1, N) where N is the number of patches, e.g. N=H*W
         feats1, feats2 = q[:, :, :-1], q[:, :, 1:]
         feats1, feats2 = self.graph_matching(feats1, feats2)
