@@ -120,6 +120,7 @@ class CRW(nn.Module):
            N>1 -> list of patches of images
            N=1 -> list of images
         '''
+        print(x.shape)
         B, T, C, H, W = x.shape
         _N, C = C//3, 3
     
@@ -140,7 +141,7 @@ class CRW(nn.Module):
         walks = dict()
         print(q.shape)
         print("!!!!!!!")
-        # feats1,2 have shape (B, T-1, N, n) where n is the number of patches, e.g. n=H*W
+        # feats1,2 have shape (B, C, T-1, N) where N is the number of patches, e.g. N=H*W
         feats1, feats2 = q[:, :, :-1], q[:, :, 1:]
         feats1, feats2 = self.graph_matching(feats1, feats2)
         As = self.affinity(feats1, feats_2)
