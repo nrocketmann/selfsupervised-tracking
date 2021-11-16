@@ -33,7 +33,7 @@ class CRW(nn.Module):
         self.sk_targets = getattr(args, 'sk_targets', False)
         self.vis = vis
 
-        num_layers = 1
+        num_layers = 4
         hidden_dim = 128
         num_heads = 4
         FF_dim = 128
@@ -149,7 +149,7 @@ class CRW(nn.Module):
         # feats1,2 have shape (B, C, T-1, N) where N is the number of patches, e.g. N=H*W
         feats1, feats2 = q[:, :, :-1], q[:, :, 1:]
         feats1, feats2 = self.graph_matching(feats1, feats2)
-        As = self.affinity(feats1, feats_2)
+        As = self.affinity(feats1, feats2)
         A12s = [self.stoch_mat(As[:, i], do_dropout=True) for i in range(T-1)]
 
         #################################################### Palindromes

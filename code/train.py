@@ -40,7 +40,7 @@ def train_one_epoch(model, optimizer, lr_scheduler, data_loader, device, epoch, 
             vis.log(dict(loss=loss.mean().item()))
             vis.log({k: v.mean().item() for k,v in diagnostics.items()})
 
-        if checkpoint_fn is not None and step % 100 == 1:
+        if checkpoint_fn is not None and step % 500 == 1:
             checkpoint_fn(step)
  
         optimizer.zero_grad()

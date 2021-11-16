@@ -34,6 +34,10 @@ class ResNet(torch_resnet.ResNet):
                     print('padding', m)
 
         # Remove extraneous layers
+        if isinstance(remove_layers, str):
+            s = remove_layers
+            remove_layers = []
+            remove_layers.append(s)
         remove_layers += ['fc', 'avgpool']
         for layer in filter_layers(remove_layers):
             setattr(self, layer, None)
