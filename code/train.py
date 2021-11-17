@@ -32,7 +32,7 @@ def train_one_epoch(model, optimizer, lr_scheduler, data_loader, device, epoch, 
         start_time = time.time()
 
         video = video.to(device)
-        output, loss, diagnostics = model(video)
+        loss, diagnostics = model(video)
         loss = loss.mean()
 
         if vis is not None and np.random.random() < 0.01:

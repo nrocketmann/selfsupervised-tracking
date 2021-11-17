@@ -49,8 +49,9 @@ class GraphMatching(nn.Module):
 
         #self.batchnorm = nn.ModuleList([nn.BatchNorm1d(hidden_dim) for _ in range(num_layers)])
 
-    def normalize(self, hidden, layer):
-        return hidden
+    def normalize(self, hidden1, hidden2, layer):
+        # hidden shape (Bt, N, C)
+        # BatchNorm1d expects (Bt, C, N)
         hidden = hidden.transpose(1, 2)
         hidden = self.batchnorm[layer](hidden)
         return hidden.transpose(1, 2)
@@ -63,10 +64,14 @@ class GraphMatching(nn.Module):
         nodes1 = nodes1.permute(0, 2, 3, 1).flatten(0, 1)
         nodes2 = nodes2.permute(0, 2, 3, 1).flatten(0, 1)
 
+        # nodes shape (Bt, N, C)
         for layer in range(self.num_layers):
             next_nodes1 = self.mp[layer](nodes2, nodes1)
             nodes2 = self.mp[layer](nodes1, nodes2)
             nodes1 = next_nodes1
+
+            #nodes1 = self.normalize(nodes1, layer)
+            #nodes2 = self.normalize(nodes2, layer)
         
         nodes1 = nodes1.view(B, t, N, C).permute(0, 2, 3, 1)
         nodes2 = nodes2.view(B, t, M, C).permute(0, 2, 3, 1)

@@ -11,7 +11,7 @@ EPS = 1e-20
 
 
 class CRW(nn.Module):
-    def __init__(self, args, vis=None):
+    def __init__(self, args, vis=None, use_gnn=False):
         super(CRW, self).__init__()
         self.args = args
 
@@ -37,7 +37,11 @@ class CRW(nn.Module):
         hidden_dim = 128
         num_heads = 4
         FF_dim = 128
-        self.graph_matching = GraphMatching(num_layers, hidden_dim, num_heads, FF_dim)
+
+        if use_gnn:
+            self.graph_matching = GraphMatching(num_layers, hidden_dim, num_heads, FF_dim)
+        else:
+            self.graph_matching = None
 
     def infer_dims(self):
         in_sz = 256
@@ -148,7 +152,9 @@ class CRW(nn.Module):
 
         # feats1,2 have shape (B, C, T-1, N) where N is the number of patches, e.g. N=H*W
         feats1, feats2 = q[:, :, :-1], q[:, :, 1:]
-        feats1, feats2 = self.graph_matching(feats1, feats2)
+
+        if self.graph_matching is not None:
+            feats1, feats2 = self.graph_matching(feats1, feats2)
         As = self.affinity(feats1, feats2)
         A12s = [self.stoch_mat(As[:, i], do_dropout=True) for i in range(T-1)]
 
@@ -202,7 +208,7 @@ class CRW(nn.Module):
 
         loss = sum(xents)/max(1, len(xents)-1)
         
-        return q, loss, diags
+        return loss, diags
 
     def xent_targets(self, A):
         B, N = A.shape[:2]
