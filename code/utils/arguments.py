@@ -56,6 +56,7 @@ def test_args():
     parser.add_argument('--norm_mask', default=False, action='store_true', help='')
     parser.add_argument('--finetune', default=0, type=int, help='')
     parser.add_argument('--pca-vis', default=False, action='store_true')
+    parser.add_argument('--use_gnn', default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -141,6 +142,7 @@ def train_args():
     parser.add_argument('--head-depth', default=0, type=int, help='depth of head mlp; 0 is linear')
     parser.add_argument('--visualize', default=False, action='store_true', help='visualize with wandb and visdom')
     parser.add_argument('--remove-layers', default=[], help='layer[1-4]')
+    parser.add_argument('--use-gnn', default=False, action='store_true')
 
     # sinkhorn-knopp ideas (experimental)
     parser.add_argument('--sk-align', default=False, action='store_true',

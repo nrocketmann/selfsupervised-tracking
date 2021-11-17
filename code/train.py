@@ -52,7 +52,8 @@ def train_one_epoch(model, optimizer, lr_scheduler, data_loader, device, epoch, 
         metric_logger.meters['clips/s'].update(video.shape[0] / (time.time() - start_time))
         lr_scheduler.step()
 
-    checkpoint_fn(0)
+    if epoch % 2 == 0:
+        checkpoint_fn(epoch)
 
 def _get_cache_path(filepath):
     import hashlib
@@ -165,7 +166,7 @@ def main(args):
     vis = utils.visualize.Visualize(args) if args.visualize else None
 
     print("Creating model")
-    model = CRW(args, vis=vis).to(device)
+    model = CRW(args, vis=vis, use_gnn=args.use_gnn).to(device)
     print(model)
     
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
