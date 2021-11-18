@@ -50,7 +50,7 @@ def train_one_epoch(model, optimizer, lr_scheduler, data_loader, device, epoch, 
 
         metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters['clips/s'].update(video.shape[0] / (time.time() - start_time))
-        lr_scheduler.step()
+        #lr_scheduler.step()
 
     if epoch % 2 == 0:
         checkpoint_fn(epoch)
