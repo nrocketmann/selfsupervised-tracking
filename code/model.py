@@ -38,6 +38,7 @@ class CRW(nn.Module):
         num_heads = 4
         FF_dim = 128
 
+        self.use_gnn = use_gnn
         if use_gnn:
             self.graph_matching = GraphMatching(num_layers, hidden_dim, num_heads, FF_dim)
         else:
