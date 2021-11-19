@@ -193,6 +193,11 @@ def main(args):
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         args.start_epoch = checkpoint['epoch'] + 1
 
+    if args.finetune:
+        checkpoint = torch.load(args.finetune, map_location='cpu')
+        model_without_ddp.encoder.load_state_dict(checkpoint["encoder"])
+        model_without_ddp.selfsim_fc.load_state_dict(checkpoint["fc"])
+
     def save_model_checkpoint(step):
         if args.output_dir:
             checkpoint = {

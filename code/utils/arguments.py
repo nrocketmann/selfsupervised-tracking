@@ -106,6 +106,7 @@ def train_args():
     parser.add_argument('--print-freq', default=10, type=int, help='print frequency')
     parser.add_argument('--output-dir', default='auto', help='path where to save')
     parser.add_argument('--resume', default='', help='resume from checkpoint')
+    parser.add_argument('--finetune', default='', help='load encoder and fc from pretrained, ready for finetuning')
     parser.add_argument('--partial-reload', default='', help='reload net from checkpoint, ignoring keys that are not in current model')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='start epoch')

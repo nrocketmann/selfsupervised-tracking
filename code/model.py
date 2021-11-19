@@ -23,7 +23,7 @@ class CRW(nn.Module):
         self.infer_dims()
         self.selfsim_fc = self.make_head(depth=getattr(args, 'head_depth', 0))
 
-        self.xent = nn.CrossEntropyLoss(reduction="none")
+        self.xent = nn.CrossEntropyLoss(reduction="none")   
         self._xent_targets = dict()
 
         self.dropout = nn.Dropout(p=self.edgedrop_rate, inplace=False)
@@ -118,7 +118,9 @@ class CRW(nn.Module):
         feats = maps.sum(-1).sum(-1) / (H*W)
         feats = self.selfsim_fc(feats.transpose(-1, -2)).transpose(-1,-2)
 
-        feats = F.normalize(feats, p=2, dim=1)
+        if self.use_gnn:
+            # will normalize after gnn
+            feats = F.normalize(feats, p=2, dim=1)
     
         feats = feats.view(B, N, feats.shape[1], T).permute(0, 2, 3, 1)
         maps  =  maps.view(B, N, *maps.shape[1:])
@@ -155,6 +157,9 @@ class CRW(nn.Module):
 
         if self.graph_matching is not None:
             feats1, feats2 = self.graph_matching(feats1, feats2)
+            # normalize after gnn
+            feats1 = F.normalize(feats1, p=2, dim=1)
+            feats2 = F.normalize(feats2, p=2, dim=1)
         As = self.affinity(feats1, feats2)
         A12s = [self.stoch_mat(As[:, i], do_dropout=True) for i in range(T-1)]
 
