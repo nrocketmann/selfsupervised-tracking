@@ -119,7 +119,7 @@ class CRW(nn.Module):
         feats = maps.sum(-1).sum(-1) / (H*W)
         feats = self.selfsim_fc(feats.transpose(-1, -2)).transpose(-1,-2)
 
-        if self.use_gnn:
+        if not self.use_gnn:
             # will normalize after gnn
             feats = F.normalize(feats, p=2, dim=1)
     
@@ -156,7 +156,7 @@ class CRW(nn.Module):
         # feats1,2 have shape (B, C, T-1, N) where N is the number of patches, e.g. N=H*W
         feats1, feats2 = q[:, :, :-1], q[:, :, 1:]
 
-        if self.graph_matching is not None:
+        if self.use_gnn:
             feats1, feats2 = self.graph_matching(feats1, feats2)
             # normalize after gnn
             feats1 = F.normalize(feats1, p=2, dim=1)
