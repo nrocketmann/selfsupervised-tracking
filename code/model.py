@@ -107,7 +107,6 @@ class CRW(nn.Module):
         # entropy across m
         # btn
         e = self.entropy(A)[:,:,:,None]
-        print(e.size())
         # concatenate dustbin node (m+1 outgoing)
         # figure out hyper parameter
         DUSTBIN_WEIGHT = 1/math.log(A.size(dim=3))
