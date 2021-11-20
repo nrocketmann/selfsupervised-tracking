@@ -99,14 +99,15 @@ class CRW(nn.Module):
             x1, x2 = x1.unsqueeze(-2), x2.unsqueeze(-2)
 
         # why is m and n different
-        A = torch.einsum('bctn,bctm->btnm', x1[:,:,:,:-1], x2[:,:,:,:-1])
+        A = torch.einsum('bctn,bctm->btnm', x1[:,:,:,:-1], x2[:,:,:,:-1]).to(self.args.device)
+        
         # if self.restrict is not None:
         #     A = self.restrict(A)
         
         # going into dustbin
         # entropy across m
         # btn
-        e = self.entropy(A)[:,:,:,None]
+        e = self.entropy(F.softmax(A, dim=-1))[:,:,:,None].to(self.args.device)
         # concatenate dustbin node (m+1 outgoing)
         # figure out hyper parameter
         DUSTBIN_WEIGHT = 1/math.log(A.size(dim=3))
@@ -114,8 +115,9 @@ class CRW(nn.Module):
         # btn -> btn1 
         # [1,2] -> [[1],[2]]
         # map out negative afinities
-        A = torch.cat([A, e * DUSTBIN_WEIGHT],dim = 3)
+        A = torch.cat([A, e * DUSTBIN_WEIGHT],dim = 3).to(self.args.device)
         dustaff = -A.sum(-2).unsqueeze(2) #shape B, T,1, N+1	
+
         A = torch.cat([A, dustaff],dim=2) #shape B,T, N+1, N+1
         #dustbin to dustbin mapping should be 0
         A[:,:,-1,-1]=0
