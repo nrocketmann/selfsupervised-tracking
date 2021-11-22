@@ -60,17 +60,17 @@ class CRW(nn.Module):
         if in_t_dim < 4:  # add in time dimension if not there
             x1, x2 = x1.unsqueeze(-2), x2.unsqueeze(-2)
 
-        #we only want affinities going into dustbin, so x1 we want to strip off dustbin
-        x1_strip = x1[:,:,:,:-1]
+        # we only want affinities going into dustbin, so x1 we want to strip off dustbin
+        x1_strip = x1[:, :, :, :-1]
 
-        A = torch.einsum('bctn,bctm->btnm', x1_strip, x2) #shape B, T, N, N+1
+        A = torch.einsum('bctn,bctm->btnm', x1_strip, x2)  # shape B, T, N, N+1
         # if self.restrict is not None:
         #     A = self.restrict(A)
 
-        #now for affinities out of dustbin
-        dustaff = -A.sum(-2).unsqueeze(2) #shape B, T,1, N+1
-        dustaff[:,:,:,-1] = 0 #get rid of dustbin-to-dustbin connection
-        A = torch.cat([A, dustaff],dim=2) #shape B,T, N+1, N+1
+        # now for affinities out of dustbin
+        dustaff = -A.sum(-2).unsqueeze(2)  # shape B, T,1, N+1
+        dustaff[:, :, :, -1] = 0  # get rid of dustbin-to-dustbin connection
+        A = torch.cat([A, dustaff], dim=2)  # shape B,T, N+1, N+1
 
         return A.squeeze(1) if in_t_dim < 4 else A
 
@@ -102,13 +102,10 @@ class CRW(nn.Module):
         '''
         B, N, C, T, h, w = x.shape
 
-        x_input = x.flatten(0,1)
+        x_input = x.flatten(0, 1)
         maps = self.encoder(x_input)
         H, W = maps.shape[-2:]
 
-
-        dustbin_input = torch.cat([x_input[:,:,:-1],x_input[:,:,1:]],dim=1) #stack last 2 frames on channel axis
-        dustbin_maps = self.dustbin_encoder(dustbin_input)
         dustbin_input = torch.cat([x_input[:, :, :-1], x_input[:, :, 1:]], dim=1)  # stack last 2 frames on channel axis
         dustbin_maps = self.dustbin_encoder(dustbin_input)
 
@@ -116,9 +113,7 @@ class CRW(nn.Module):
             maps = self.featdrop(maps)
             dustbin_maps = self.featdrop(dustbin_maps)
 
-
-
-        #der this does happen so I have to dustbin-ify things here too
+        # der this does happen so I have to dustbin-ify things here too
         if N == 1:  # flatten single image's feature map to get node feature 'maps'
             maps = maps.permute(0, -2, -1, 1, 2).contiguous()
             maps = maps.view(-1, *maps.shape[3:])[..., None, None]
@@ -128,16 +123,17 @@ class CRW(nn.Module):
             dustbin_maps = dustbin_maps.view(-1, *dustbin_maps.shape[3:])[..., None, None]
 
         # compute node embeddings by spatially pooling node feature maps
-        feats = maps.sum(-1).sum(-1) / (H * W) #shape BN x C x T
-        feats = self.selfsim_fc(feats.transpose(-1, -2)).transpose(-1, -2) #shape BN x newC x T
-        feats = F.normalize(feats, p=2, dim=1)#shape BN x C x T
+        feats = maps.sum(-1).sum(-1) / (H * W)  # shape BN x C x T
+        feats = self.selfsim_fc(feats.transpose(-1, -2)).transpose(-1, -2)  # shape BN x newC x T
+        feats = F.normalize(feats, p=2, dim=1)  # shape BN x C x T
 
-        #now for dustbin, we want to average over H,W,N
+        # now for dustbin, we want to average over H,W,N
         dustbin_maps = dustbin_maps.view(B, N, *dustbin_maps.shape[1:])
-        dustbin_feat = dustbin_maps.sum(-1).sum(-1).sum(1)/(H*W*N) #now has shape B X C X T
-        dustbin_feat = self.dustbin_fc(dustbin_feat.transpose(-1,-2)).transpose(-1, -2) #shape B X C X T
-        dustbin_feat = F.normalize(dustbin_feat, p=2, dim=1)#shape B x C x T
-
+        dustbin_feat = dustbin_maps.sum(-1).sum(-1).sum(1) / (H * W * N)  # now has shape B X C X T
+        dustbin_feat = self.dustbin_fc(dustbin_feat.transpose(-1, -2)).transpose(-1, -2)  # shape B X C X T
+        dustbin_feat = F.normalize(dustbin_feat, p=2, dim=1)  # shape B x C x T
+        dustbin_feat = torch.cat([torch.zeros([*dustbin_feat.shape[:-1], 1]).to(self.args.device), dustbin_feat],
+                                 dim=-1)
 
         feats = feats.view(B, N, feats.shape[1], T).permute(0, 2, 3, 1)
         maps = maps.view(B, N, *maps.shape[1:])
@@ -160,15 +156,14 @@ class CRW(nn.Module):
         q, mm, dustbinq = self.pixels_to_nodes(x)
         B, C, T, N = q.shape
 
-        #again, I don't think this ever happens, so I'm not going to work the dustbins in here
+        # again, I don't think this ever happens, so I'm not going to work the dustbins in here
         if just_feats:
             h, w = np.ceil(np.array(x.shape[-2:]) / self.map_scale).astype(np.int)
             return (q, mm) if _N > 1 else (q, q.view(*q.shape[:-1], h, w))
 
-
         # q shape (B x C x T x N)
         # dustbinq shape (B x C x T)
-        q = torch.cat([q, dustbinq.view(B,C,T,1)],dim=-1)
+        q = torch.cat([q, dustbinq.view(B, C, T, 1)], dim=-1)
         #################################################################
         # Compute walks
         #################################################################
