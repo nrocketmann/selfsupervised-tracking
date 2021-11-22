@@ -7,6 +7,7 @@
 #SBATCH --mail-user=nameer@umich.edu
 #SBATCH --job-name=train-nndustbin
 #SBATCH --account=eecs542f21_class
+cd ~/EECS42
 module load python/3.8.7
 source crw_env/bin/activate
 export TRAIN_PY="selfsupervised-tracking/code/train.py"
