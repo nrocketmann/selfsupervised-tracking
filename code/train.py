@@ -206,7 +206,7 @@ def main(args):
                 'args': args}
             torch.save(
                 checkpoint,
-                os.path.join(args.output_dir, 'model_{}_{}.pth'.format(epoch, step)))
+                os.path.join(args.output_dir, 'model_{}.pth'.format(epoch)))
             torch.save(
                 checkpoint,
                 os.path.join(args.output_dir, 'checkpoint.pth'))
