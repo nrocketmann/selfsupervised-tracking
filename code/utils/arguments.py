@@ -51,7 +51,7 @@ def test_args():
 
     parser.add_argument('--remove-layers', default=['layer4'], help='layer[1-4]')
     parser.add_argument('--no-l2', default=False, action='store_true', help='')
-    parser.add_argument('--keep_fc', default=False, action='store_true',help='Only use this if you have no layers removed. This makes you keep the final FC layer of the model')
+    parser.add_argument('--keep-fc', default=False, action='store_true',help='Only use this if you have no layers removed. This makes you keep the final FC layer of the model')
 
     parser.add_argument('--long-mem', default=[0], type=int, nargs='*', help='')
     parser.add_argument('--texture', default=False, action='store_true', help='')

@@ -20,7 +20,7 @@ import utils.test_utils as test_utils
 
 def main(args, vis):
     if args.keep_fc:
-        assert args.remove_layers==[]
+        args.remove_layers = []
     model = CRW(args, vis=vis).to(args.device)
     args.mapScale = test_utils.infer_downscale(model)
 
