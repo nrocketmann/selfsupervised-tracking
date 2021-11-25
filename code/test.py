@@ -19,6 +19,8 @@ import utils.test_utils as test_utils
 
 
 def main(args, vis):
+    if args.keep_fc:
+        assert args.remove_layers==[]
     model = CRW(args, vis=vis).to(args.device)
     args.mapScale = test_utils.infer_downscale(model)
 
@@ -43,7 +45,10 @@ def main(args, vis):
                     state[k.replace('.1.weight', '.weight')] = v
                 else:
                     state[k] = v
-            utils.partial_load(state, model, skip_keys=['head'])
+            if args.keep_fc:
+                utils.partial_load(state, model, skip_keys=[])
+            else:
+                utils.partial_load(state, model, skip_keys=['head'])
         else:
             utils.partial_load(checkpoint['model'], model, skip_keys=['head'])
 
@@ -79,7 +84,7 @@ def batched_affinity_fn(feats, dustbin_feats, key_indices, n_context, args):
     D = D.flatten(-4, -3)
 
     D = D.flatten(-2)
-    D[D == 0] = -1e10;
+    D[D == 0] = -1e10
     D[D == 1] = 0
     # Flatten source frame features to make context feature set
     keys, query = keys.flatten(-2), query.flatten(-2)
@@ -115,6 +120,8 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
         # They use their funky From3D thing, that's why the 1,2 transpose happens
         for b in range(0, imgs.shape[1], bsize):
             feat = model.encoder(imgs[:, b:b + bsize].transpose(1, 2).to(args.device))  # shape 1, C, bsize, H, W
+            if args.keep_fc:
+                feat = model.selfsim_fc(feat.transpose(1,-1)).transpose(1,-1)
             H, W = feat.shape[-2:]
             last_dim = min(imgs.shape[1], b + bsize)
             if b == 0:  # special case because dustbin has to be padded here
@@ -124,6 +131,8 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
 
             dustbin_feat = model.dustbin_encoder(dustbin_input.transpose(1, 2).to(args.device)).sum(-1).sum(-1) / (
                         H * W)
+            if args.keep_fc:
+                dustbin_feat = model.dustbin_fc(dustbin_feat.transpose(1,-1)).transpose(1,-1)
             if b == 0:  # pad with zeros on the left
                 dustbin_feat = torch.cat([torch.zeros([*dustbin_feat.shape[:-1], 1]).to(args.device), dustbin_feat],
                                          dim=-1)
