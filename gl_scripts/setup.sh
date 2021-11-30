@@ -1,8 +1,8 @@
 git clone https://github.com/davisvideochallenge/davis2017-evaluation.git
 cd selfsupervised-tracking
-git checkout gnn
+git checkout entropy
 git fetch
-git reset --hard origin/gnn
+git reset --hard origin/entropy
 cd ..
 module load python/3.8.7
 virtualenv -p python3.8.7 crw_env
