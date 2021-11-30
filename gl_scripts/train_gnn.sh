@@ -10,10 +10,10 @@
 #SBATCH --job-name=my_second_job
 #SBATCH --account=eecs542f21_class
 
-module load python/3.8.7
-source crw_env/bin/activate
+#module load python/3.8.7
+#source crw_env/bin/activate
 
-export TRAIN_PY="code/train.py"
+export TRAIN_PY="selfsupervised-tracking/code/train.py"
 export DATA_PATH="vos_clips/"
 export CACHE_PATH="vos_all_clips"
 export OUTPUT_PATH="vanilla_11_17_2/"
