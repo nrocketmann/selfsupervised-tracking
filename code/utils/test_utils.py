@@ -77,7 +77,7 @@ def process_pose(pred, lbl_set, topk=3):
     return current_coord.cpu(), pred_val_sharp
 
 
-def dump_predictions(pred, lbl_set, img, prefix):
+def dump_predictions(pred, lbl_set, img, dustbins, prefix):
     '''
     Save:
         1. Predicted labels for evaluation
@@ -102,6 +102,7 @@ def dump_predictions(pred, lbl_set, img, prefix):
 
     # Save blend image for visualization
     imageio.imwrite('%s_blend.jpg' % prefix, np.uint8(img_with_label))
+    np.savez(prefix + "dustbins.npz",dustbins=dustbins)
 
     if prefix[-4] != '.':  # Super HACK-y
         imname2 = prefix + '_mask.png'
@@ -144,6 +145,7 @@ def mem_efficient_batched_affinity(query, keys, dustbin_targets, mask, temperatu
     '''
     bsize, pbsize = 2, 100 #keys.shape[2] // 2
     Ws, Is = [], []
+    dustbins = []
     # keys: 1, C, vidlen, num context frames, HW
     # query: 1, C, vidlen, HW
     # dustbin targets: 1, C, vidlen
@@ -154,7 +156,10 @@ def mem_efficient_batched_affinity(query, keys, dustbin_targets, mask, temperatu
 
         dustbin_aff = torch.einsum('ijklm,ijkn->iklmn', _k,
                                    _d)  # shape 1, vidlen, context frames, HW
-
+        _, shape1, shape2, shape3 = dustbin_aff.shape
+        assert shape1==bsize
+        dustbin_aff = dustbin_aff.view(bsize, shape2, int(np.sqrt(shape3)), -1)
+        dustbins.append(dustbin_aff)
         for pb in range(0, _k.shape[-1], pbsize):
             A = torch.einsum('ijklm,ijkn->iklmn', _k, _q[..., pb:pb+pbsize])  #shape 1, vidlen, context frames, HW, HW
             A[0, :, len(long_mem):] += mask[..., pb:pb+pbsize].to(device)
@@ -176,8 +181,8 @@ def mem_efficient_batched_affinity(query, keys, dustbin_targets, mask, temperatu
         Ws += [w for w in weights]
         Is += [ii for ii in ids]
 
-
-    return Ws, Is
+    dustbins = torch.cat(dustbins,dim=0)
+    return Ws, Is, dustbins
 
 def batched_affinity(query, keys, mask, temperature, topk, long_mem, device):
     '''
