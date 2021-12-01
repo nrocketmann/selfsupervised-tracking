@@ -22,7 +22,7 @@ class ResNet(torch_resnet.ResNet):
     def modify(self, remove_layers=[], padding='', is_dustbin=False):
         # Set stride of layer3 and layer 4 to 1 (from 2)
         if is_dustbin:
-            self.conv1 = nn.Conv2d(6, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
             nn.init.kaiming_normal_(self.conv1.weight, mode="fan_out", nonlinearity="relu")
         filter_layers = lambda x: [l for l in x if getattr(self, l) is not None]
         for layer in filter_layers(['layer3', 'layer4']):
