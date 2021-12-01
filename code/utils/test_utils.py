@@ -167,14 +167,16 @@ def mem_efficient_batched_affinity(query, keys, mask, temperature, topk, long_me
             A = torch.einsum('ijkm, ijkn->ikmn', _k, _q_gnn)
             A_list.append(A.cpu())
 
-        A = torch.stack(A_list, dim=-2)
-        # A shape (1, bsize, num_frames, hw1, hw2) ? ?
+        A = torch.stack(A_list, dim=2).squeeze(0)
+        # A shape (bsize, num_frames, hw1, hw2) ? ?
+        hw1, hw2 = A.shape[-2:]
+        print(query.shape, keys.shape, mask.shape,A.shape)
 
         A += mask
         A = A.view(bsize, num_frames*hw1, hw2)
         A /= temperature
-        weights, ids = torch.topk(A, topk, dim=-2)
-        weights = F.softmax(weights, dim=-2)
+        weights, ids = torch.topk(A, topk, dim=1)
+        weights = F.softmax(weights, dim=1)
 
         Ws += [w for w in weights]
         Is += [ii for ii in ids]
