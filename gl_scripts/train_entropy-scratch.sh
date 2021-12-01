@@ -6,11 +6,13 @@
 #SBATCH --mem-per-gpu=16GB
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=duttar@umich.edu
-#SBATCH --job-name=train-nndustbin
+#SBATCH --job-name=entropy-scratch
 #SBATCH --account=eecs542f21_class
-cd ~/EECS542
-module load python/3.8.7
-source crw_env/bin/activate
+
+# cd ~/EECS542
+# module load python/3.8.7
+# source crw_env/bin/activate
+
 export TRAIN_PY="selfsupervised-tracking/code/train.py"
 export DATA_PATH="vos_clips/"
 export CACHE_PATH="vos_all_clips"
