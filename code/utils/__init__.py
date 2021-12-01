@@ -324,12 +324,11 @@ def make_encoder(args):
     return net
 
 def make_dustbin_encoder(args):
-    # model_type = args.dustbin_model_type
-    model_type = args.model_type
+    model_type = args.dustbin_model_type
 
     if model_type == 'scratch':
         net = resnet.resnet18()
-        net.modify(padding='reflect')
+        net.modify(padding='reflect',is_dustbin=True)
 
     elif model_type == 'scratch_zeropad':
         net = resnet.resnet18()
@@ -357,7 +356,7 @@ def make_dustbin_encoder(args):
         assert False, 'invalid args.model_type'
 
     if hasattr(net, 'modify'):
-        net.modify(remove_layers=args.remove_layers)
+        net.modify(remove_layers=args.remove_layers,is_dustbin=True)
 
     if 'Conv2d' in str(net):
         net = From3D(net)

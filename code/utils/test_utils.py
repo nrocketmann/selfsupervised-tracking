@@ -149,16 +149,18 @@ def mem_efficient_batched_affinity(query, keys, dustbin_targets, mask, temperatu
     # dustbin targets: 1, C, vidlen
     for b in range(0, keys.shape[2], bsize):
         _k, _q = keys[:, :, b:b+bsize].to(device), query[:, :, b:b+bsize].to(device)
+        _d = dustbin_targets[:,:,b:b+bsize].unsqueeze(-1).to(device)
         w_s, i_s = [], []
+
+        dustbin_aff = torch.einsum('ijklm,ijkn->iklmn', _k,
+                                   _d)  # shape 1, vidlen, context frames, HW
 
         for pb in range(0, _k.shape[-1], pbsize):
             A = torch.einsum('ijklm,ijkn->iklmn', _k, _q[..., pb:pb+pbsize])  #shape 1, vidlen, context frames, HW, HW
             A[0, :, len(long_mem):] += mask[..., pb:pb+pbsize].to(device)
-            dustbin_aff = torch.einsum('ijklm,ijk->iklm', _k, dustbin_targets[..., pb:pb+pbsize]) #shape 1, vidlen, context frames, HW
-            A = torch.cat([A, dustbin_aff.unsqueeze(-1)],dim=-1 )
 
             _, N, T, h1w1, hw = A.shape
-            # shape 1, vidlen, context frames, HW, HW+1
+            # shape 1, vidlen, context frames, HW, HW
 
             A = A.view(N, T*h1w1, hw)
             A /= temperature
@@ -173,6 +175,7 @@ def mem_efficient_batched_affinity(query, keys, dustbin_targets, mask, temperatu
         ids = torch.cat(i_s, dim=-1)
         Ws += [w for w in weights]
         Is += [ii for ii in ids]
+
 
     return Ws, Is
 
