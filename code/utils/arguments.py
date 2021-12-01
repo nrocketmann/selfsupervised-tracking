@@ -51,6 +51,7 @@ def test_args():
 
     parser.add_argument('--remove-layers', default=['layer4'], help='layer[1-4]')
     parser.add_argument('--no-l2', default=False, action='store_true', help='')
+    parser.add_argument('--keep-fc', default=False, action='store_true',help='Only use this if you have no layers removed. This makes you keep the final FC layer of the model')
 
     parser.add_argument('--long-mem', default=[0], type=int, nargs='*', help='')
     parser.add_argument('--texture', default=False, action='store_true', help='')
@@ -102,7 +103,7 @@ def train_args():
     parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                         metavar='W', help='weight decay (default: 1e-4)',
                         dest='weight_decay')
-
+    parser.add_argument('--finetune', default='', help='load encoder and fc from pretrained, ready for finetuning')
     parser.add_argument('--lr-milestones', nargs='+', default=[20, 30, 40], type=int, help='decrease lr on milestones')
     parser.add_argument('--lr-gamma', default=0.3, type=float, help='decrease lr by a factor of lr-gamma')
     parser.add_argument('--lr-warmup-epochs', default=0, type=int, help='number of warmup epochs')
@@ -124,7 +125,6 @@ def train_args():
     parser.add_argument('--name', default='', type=str, help='')
     parser.add_argument('--dropout', default=0, type=float, help='dropout rate on A')
     parser.add_argument('--zero-diagonal', help='always zero diagonal of A', action="store_true", )
-    parser.add_argument('--flip', default=False, help='flip transitions (bug)', action="store_true", )
 
     parser.add_argument('--frame-aug', default='grid', type=str,
                         help='grid or none')
@@ -139,6 +139,7 @@ def train_args():
     parser.add_argument('--server', default='localhost', type=str, help='visdom server')
 
     parser.add_argument('--model-type', default='scratch', type=str, help='scratch | imagenet | moco')
+    parser.add_argument('--dustbin-model-type', default='scratch', type=str)
     parser.add_argument('--optim', default='adam', type=str, help='adam | sgd')
 
     parser.add_argument('--temp', default=0.07,
