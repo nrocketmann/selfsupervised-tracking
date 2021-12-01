@@ -14,7 +14,7 @@ source crw_env/bin/activate
 export TRAIN_PY="/home/duttar/selfsupervised-tracking/code/train.py"
 export DATA_PATH="/home/duttar/vos_clips/"
 export CACHE_PATH="/home/duttar/vos_all_clips"
-export FINETUNE_PATH="/home/duttar/pretrained_enc_fc.pth"
+export FINETUNE_PATH="/home/duttar/selfsupervised-tracking/pretrained_enc_fc.pth"
 export OUTPUT_PATH="/home/duttar/entropy_output/"
 mkdir $OUTPUT_PATH
 python -u -W ignore $TRAIN_PY --data-path $DATA_PATH \
