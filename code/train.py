@@ -191,6 +191,10 @@ def main(args):
         optimizer.load_state_dict(checkpoint['optimizer'])
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         args.start_epoch = checkpoint['epoch'] + 1
+    if args.finetune:
+        checkpoint = torch.load(args.finetune, map_location='cpu')
+        model_without_ddp.encoder.load_state_dict(checkpoint["encoder"])
+        model_without_ddp.selfsim_fc.load_state_dict(checkpoint["fc"])
 
     def save_model_checkpoint(step):
         if args.output_dir:
@@ -202,7 +206,7 @@ def main(args):
                 'args': args}
             torch.save(
                 checkpoint,
-                os.path.join(args.output_dir, 'model_{}_{}.pth'.format(epoch, step)))
+                os.path.join(args.output_dir, 'model_{}.pth'.format(epoch)))
             torch.save(
                 checkpoint,
                 os.path.join(args.output_dir, 'checkpoint.pth'))
