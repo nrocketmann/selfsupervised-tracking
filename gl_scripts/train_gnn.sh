@@ -1,12 +1,12 @@
 #!/bin/bash
 
 #SBATCH --partition=gpu
-#SBATCH --time=0-20:00:00
+#SBATCH --time=0-00:02:00
 #SBATCH --gpus=1
 #SBATCH --cpus-per-gpu=32
 #SBATCH --mem-per-gpu=16GB
 #SBATCH --mail-type=BEGIN,END,FAIL
-#SBATCH --mail-user=jweitze@umich.edu
+#SBATCH --mail-user=duttar@umich.edu
 #SBATCH --job-name=my_second_job
 #SBATCH --account=eecs542f21_class
 
