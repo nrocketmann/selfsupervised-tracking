@@ -85,13 +85,8 @@ class CRW(nn.Module):
         return A * mask
 
     def entropy(self, x):
-        out = torch.empty(x.size()[0],x.size()[1],x.size()[2])
-        for i in range(x.size()[0]):
-            for j in range(x.size()[1]):
-                for k in range(x.size()[2]):
-                    entropy = Categorical(probs = x[i,j,k]).entropy()
-                    out[:,:,i] = entropy
-        return out
+        x = -1 * x * torch.log(x)
+        return torch.sum(x, 3, keepdim=False)
 
     def affinity(self, x1, x2):
         in_t_dim = x1.ndim
