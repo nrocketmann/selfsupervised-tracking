@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --partition=gpu
-#SBATCH --time=0-00:10:00
+#SBATCH --time=0-01:00:00
 #SBATCH --gpus=1
 #SBATCH --cpus-per-gpu=32
 #SBATCH --mem-per-gpu=16GB
