@@ -69,6 +69,7 @@ def batched_affinity_fn(keys, query, key_indices, n_context, args, feats_shape):
     D = D.flatten(-2)
     D[D==0] = -1e10; D[D==1] = 0
     # Flatten source frame features to make context feature set
+
     keys, query = keys.flatten(-2), query.flatten(-2)
 
     print('computing affinity')
@@ -103,7 +104,7 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
             feats.append(feat.cpu())
         feats = torch.cat(feats, dim=2).squeeze(1)
 
-        if not args.no_l2:
+        if not args.no_l2 or args.use_gnn:
             # this executes by default
             feats = torch.nn.functional.normalize(feats, dim=1)
 
