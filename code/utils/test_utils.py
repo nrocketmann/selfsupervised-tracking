@@ -102,7 +102,7 @@ def dump_predictions(pred, lbl_set, img, dustbins, prefix):
 
     # Save blend image for visualization
     imageio.imwrite('%s_blend.jpg' % prefix, np.uint8(img_with_label))
-    np.savez(prefix + "dustbins.npz",dustbins=dustbins)
+    np.savez(prefix + "dustbins.npz",dustbins=dustbins.cpu().numpy())
 
     if prefix[-4] != '.':  # Super HACK-y
         imname2 = prefix + '_mask.png'
@@ -155,10 +155,9 @@ def mem_efficient_batched_affinity(query, keys, dustbin_targets, mask, temperatu
         w_s, i_s = [], []
 
         dustbin_aff = torch.einsum('ijklm,ijkn->iklmn', _k,
-                                   _d)  # shape 1, vidlen, context frames, HW
+                                   _d).squeeze(-1)  # shape 1, vidlen, context frames, HW
         _, shape1, shape2, shape3 = dustbin_aff.shape
-        assert shape1==bsize
-        dustbin_aff = dustbin_aff.view(bsize, shape2, int(np.sqrt(shape3)), -1)
+        dustbin_aff = dustbin_aff.view(shape1, shape2, int(np.sqrt(shape3)), -1)
         dustbins.append(dustbin_aff)
         for pb in range(0, _k.shape[-1], pbsize):
             A = torch.einsum('ijklm,ijkn->iklmn', _k, _q[..., pb:pb+pbsize])  #shape 1, vidlen, context frames, HW, HW
