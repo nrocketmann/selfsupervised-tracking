@@ -21,4 +21,4 @@ python -u -W ignore $TRAIN_PY --data-path $DATA_PATH \
         --model-type scratch  --workers 32 --batch-size 4 \
         --load-cache $CACHE_PATH --data-parallel --lr 0.0001 \
         --output-dir $OUTPUT_PATH --epochs 10 --lr-milestones 250 \
-        --resume selfsupervised-tracking/pretrained.pth
+        --finetune selfsupervised-tracking/pretrained.pth
