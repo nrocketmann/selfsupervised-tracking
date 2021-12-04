@@ -58,12 +58,12 @@ class GraphMatching(nn.Module):
 
     def forward(self, nodes1, nodes2):
         # nodes1,2 have shape (B, C, T-1, N) where N is the number of patches, e.g. N=H*W
-
+        #print("G0", nodes1.shape, nodes2.shape)    
         B, C, t, N = nodes1.shape
         B, C, t, M = nodes2.shape
         nodes1 = nodes1.permute(0, 2, 3, 1).flatten(0, 1)
         nodes2 = nodes2.permute(0, 2, 3, 1).flatten(0, 1)
-
+        #print("G1", nodes1.shape, nodes2.shape)
         # nodes shape (Bt, N, C)
         for layer in range(self.num_layers):
             next_nodes1 = self.mp[layer](nodes2, nodes1)
@@ -72,9 +72,12 @@ class GraphMatching(nn.Module):
 
             #nodes1 = self.normalize(nodes1, layer)
             #nodes2 = self.normalize(nodes2, layer)
-        
-        nodes1 = nodes1.view(B, t, N, C).permute(0, 2, 3, 1)
-        nodes2 = nodes2.view(B, t, M, C).permute(0, 2, 3, 1)
+        #print("G2", nodes1.shape, nodes2.shape, nodes1.view(B,t,N,C).shape)
+        #nodes1 = nodes1.view(B, t, N, C).permute(0, 2, 3, 1)
+        #nodes2 = nodes2.view(B, t, M, C).permute(0, 2, 3, 1)
+        nodes1 = nodes1.view(B, t, N, C).permute(0, 3, 1, 2)
+        nodes2 = nodes2.view(B, t, M, C).permute(0, 3, 1, 2)
+        #print("G3", nodes1.shape, nodes2.shape)
         return nodes1, nodes2
 
 
