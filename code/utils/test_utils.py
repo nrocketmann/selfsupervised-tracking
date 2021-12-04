@@ -138,52 +138,82 @@ def context_index_bank(n_context, long_mem, N):
     return ll + ss
 
 
-def mem_efficient_batched_affinity(query, keys, mask, temperature, topk, long_mem, device):
+#def mem_efficient_batched_affinity(query, keys, mask, temperature, topk, long_mem, device):
+def mem_efficient_batched_affinity(query, feats, mask, temperature, topk, long_mem, device, n_context, key_indices):
     '''
     Mini-batched computation of affinity, for memory efficiency
     '''
-
-    # keys 1, C, vidLen, num context frames, HW
-    # query 1, C, vidLen, HW
-    bsize, pbsize = 1, 100 #keys.shape[2] // 2
-    #frame_bsize = 1
+    # query 1, C, vidLen-ncontext, HW
+    # feats 1, C, vidLen, HW
+    bsize = 16
     Ws, Is = [], []
 
-    _, _, vid_length, num_frames, HW = keys.shape
-
-    for b in range(0, vid_length, bsize):
+    _, _, vid_length, HW = feats.shape
+    mask = mask.to(device)
+    for b in range(0, vid_length-n_context, bsize):
+        print(b, "/", vid_length-n_context)
+        #_q = feats[:, :, n_context+b:n_context+b+bsize].to(device)
         _q = query[:, :, b:b+bsize].to(device)
-        A_list = []
+
+        #A_big = torch.zeros((1, bsize, n_context+1, HW, HW))
         w_s, i_s = [], []
-        for frame in range(0, num_frames):
-            _k = keys[:, :, b:b+bsize, frame].to(device)
-            # _k shape 1,C,bsize, frame_bsize, HW
-            # _q shape 1,C,bsize, 1, HW
+        keys = feats[:, :, key_indices[b:b+bsize]].to(device)
+        frame_weights = []
+        frame_ind = []
+        for frame in range(n_context+1):
+            _k = keys[:, :, :, frame, :]
+            # _k shape 1,C,bsize, HW
+            # _q shape 1,C,bsize, HW
 
             #_k, _q_gnn = model.graph_matching(_k, _q)
             _q_gnn = _q
             #_k = F.normalize(_k, p=2, dim=1)
             #_q_gnn = F.normalize(_q_gnn, p=2, dim=1)
             A = torch.einsum('ijkm, ijkn->ikmn', _k, _q_gnn)
-            A_list.append(A.cpu())
+            if frame > 0:
+                A += mask
+            #A_big[:, :, frame, :, :] = A
+            f_w, f_i = torch.topk(A, topk, dim=2)
+            frame_weights.append(f_w)
+            frame_ind.append(f_i + frame * A.shape[-2])
 
-        A = torch.stack(A_list, dim=2).squeeze(0)
-        # A shape (bsize, num_frames, hw1, hw2) ? ?
-        hw1, hw2 = A.shape[-2:]
-        print(query.shape, keys.shape, mask.shape,A.shape)
 
-        A += mask
-        A = A.view(bsize, num_frames*hw1, hw2)
-        A /= temperature
-        weights, ids = torch.topk(A, topk, dim=1)
-        weights = F.softmax(weights, dim=1)
+        frame_weights = torch.cat(frame_weights, dim=2)
+        frame_ind = torch.cat(frame_ind, dim=2)
 
-        Ws += [w for w in weights]
-        Is += [ii for ii in ids]
-        """
+        final_w, final_i = torch.topk(frame_weights, topk, dim=2)
+        ids = torch.gather(frame_ind, dim=2, index=final_i)
+        final_w /= temperature
+        final_w = F.softmax(final_w, dim=2)
+
+        #A_big = A_big.view(1, A_big.shape[1], A_big.shape[2]*A_big.shape[3], A_big.shape[4])
+        #A_big /= temperature
+        #weights2, ids = torch.topk(A_big, topk, dim=-2)
+        #final_w = F.softmax(weights2.cpu(), dim=-2)
+        
+        Ws += [w for w in final_w[0]]
+        Is += [ii for ii in ids[0]]
+
+    return Ws, Is
+
+def mem_efficient_batched_affinity2(query, keys, feats, mask, temperature, topk, long_mem, device, n_context, key_indices):
+    '''
+    Mini-batched computation of affinity, for memory efficiency
+    '''
+    # query 1, C, vidLen-ncontext, HW
+    # feats 1, C, vidLen, HW
+    bsize = 4
+    pbsize = 100
+    Ws, Is = [], []
+    _, _, vid_length, HW = feats.shape
+    mask = mask.to(device)
+    for b in range(0, vid_length-n_context, bsize):
+        print(b, "/", vid_length-n_context)
+        _k, _q = keys[:, :, b:b+bsize].to(device), query[:, :, b:b+bsize].to(device)
         w_s, i_s = [], []
 
         for pb in range(0, _k.shape[-1], pbsize):
+            
             A = torch.einsum('ijklm,ijkn->iklmn', _k, _q[..., pb:pb+pbsize]) 
             A[0, :, len(long_mem):] += mask[..., pb:pb+pbsize].to(device)
 
@@ -201,7 +231,7 @@ def mem_efficient_batched_affinity(query, keys, mask, temperature, topk, long_me
         ids = torch.cat(i_s, dim=-1)
         Ws += [w for w in weights]
         Is += [ii for ii in ids]
-        """
+
     return Ws, Is
 
 def batched_affinity(query, keys, mask, temperature, topk, long_mem, device):

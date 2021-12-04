@@ -57,7 +57,8 @@ def main(args, vis):
     with torch.no_grad():
         test_loss = test(val_loader, model, args)
             
-def batched_affinity_fn(keys, query, key_indices, n_context, args, feats_shape):
+#def batched_affinity_fn(keys, query, key_indices, n_context, args, feats_shape):
+def batched_affinity_fn(query, feats, key_indices, n_context, args, feats_shape):
     # Make spatial radius mask TODO use torch.sparse
     restrict = utils.MaskedAttention(args.radius, flat=False)
 
@@ -70,13 +71,15 @@ def batched_affinity_fn(keys, query, key_indices, n_context, args, feats_shape):
     D[D==0] = -1e10; D[D==1] = 0
     # Flatten source frame features to make context feature set
 
-    keys, query = keys.flatten(-2), query.flatten(-2)
-
+    query = query.flatten(-2)
     print('computing affinity')
-    Ws, Is = test_utils.mem_efficient_batched_affinity(query, keys, D, 
-                args.temperature, args.topk, args.long_mem, args.device)
-    # Ws, Is = test_utils.batched_affinity(query, keys, D, 
-    #             args.temperature, args.topk, args.long_mem, args.device)
+    feats = feats.flatten(-2)
+
+    Ws, Is = test_utils.mem_efficient_batched_affinity(query, feats, D, 
+                 args.temperature, args.topk, args.long_mem, args.device, n_context, key_indices)
+    #Ws2, Is2 = test_utils.mem_efficient_batched_affinity2(query, keys, feats, D, 
+    #             args.temperature, args.topk, args.long_mem, args.device, n_context, key_indices)
+
     return Ws, Is
 
 def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, args):
@@ -98,13 +101,13 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
         bsize = 5   # minibatch size for computing features
         feats = []
         for b in range(0, imgs.shape[1], bsize):
-            print("pre enc", imgs[:, b:b+bsize].shape)
             feat = model.encoder(imgs[:, b:b+bsize].transpose(1,2).to(args.device))
-            print("feat", feat.shape)
+            if args.use_gnn:
+                feat = model.selfsim_fc(feat.transpose(1,-1)).transpose(1,-1)
             feats.append(feat.cpu())
         feats = torch.cat(feats, dim=2).squeeze(1)
 
-        if not args.no_l2 or args.use_gnn:
+        if not args.no_l2:# or args.use_gnn:
             # this executes by default
             feats = torch.nn.functional.normalize(feats, dim=1)
 
@@ -128,9 +131,12 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
         key_indices = torch.cat(key_indices, dim=-1)
         feats_shape = feats.shape[-2:]
         # next line is a large malloc, common cause of crashes
-        keys, query = feats[:, :, key_indices], feats[:, :, n_context:]
+        query = feats[:, :, n_context:]
+        #query = feats[:, :, n_context:]
+        #feats = None
+        #Ws, Is = batched_affinity_fn(keys, query, key_indices, n_context, args, feats_shape)
+        Ws, Is = batched_affinity_fn(query, feats, key_indices, n_context, args, feats_shape)
         feats = None
-        Ws, Is = batched_affinity_fn(keys, query, key_indices, n_context, args, feats_shape)
         keys, query = None, None
         if torch.cuda.is_available():
             print(time.time()-t03, 'affinity forward, max mem', torch.cuda.max_memory_allocated() / (1024**2))
