@@ -113,7 +113,12 @@ class CRW(nn.Module):
         e = self.entropy(F.softmax(A, dim=-1))[:,:,:,None].to(self.args.device)
         # concatenate dustbin node (m+1 outgoing)
         # figure out hyper parameter
-        DUSTBIN_WEIGHT = 1/math.log(A.size(dim=3))
+        DUSTBIN_WEIGHT = 0
+        # 1/math.log(A.size(dim=3))
+        # 0
+        # A.size(dim=3)/10
+
+
         # btn(m+1)
         # btn -> btn1 
         # [1,2] -> [[1],[2]]
