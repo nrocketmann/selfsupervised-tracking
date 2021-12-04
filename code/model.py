@@ -119,8 +119,7 @@ class CRW(nn.Module):
         # [1,2] -> [[1],[2]]
         # map out negative afinities
         A = torch.cat([A, e * DUSTBIN_WEIGHT],dim = 3).to(self.args.device)
-        dustaff = -A.sum(-2).unsqueeze(2) #shape B, T,1, N+1	
-
+        dustaff = -A.sum(-2).unsqueeze(2) #shape B, T,1, N+1
         A = torch.cat([A, dustaff],dim=2) #shape B,T, N+1, N+1
         #dustbin to dustbin mapping should be 0
         A[:,:,-1,-1]=0
@@ -190,7 +189,7 @@ class CRW(nn.Module):
         feats = feats.view(B, N, feats.shape[1], T).permute(0, 2, 3, 1)
         maps = maps.view(B, N, *maps.shape[1:])
 
-        return feats, maps, dustbin_feat
+        return feats, maps
 
     def forward(self, x, just_feats=False,):
         # TODO: what is N?
@@ -206,7 +205,7 @@ class CRW(nn.Module):
         # Pixels to Nodes
         #################################################################
         x = x.transpose(1, 2).view(B, _N, C, T, H, W)
-        q, mm, dustbinq = self.pixels_to_nodes(x)
+        q, mm = self.pixels_to_nodes(x)
         B, C, T, N = q.shape
 
         #again, I don't think this ever happens, so I'm not going to work the dustbins in here
@@ -217,7 +216,6 @@ class CRW(nn.Module):
 
         # q shape (B x C x T x N)
         # dustbinq shape (B x C x T)
-        q = torch.cat([q, dustbinq.view(B,C,T,1)],dim=-1)
         #################################################################
         # Compute walks
         #################################################################
