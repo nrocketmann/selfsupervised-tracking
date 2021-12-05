@@ -4,6 +4,7 @@ import os
 import time
 import imageio
 import numpy as np
+from matplotlib import pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -90,11 +91,11 @@ def batched_affinity_fn(feats, dustbin_feats, key_indices, n_context, args):
     keys, query = keys.flatten(-2), query.flatten(-2)
 
     print('computing affinity')
-    Ws, Is, dustbins = test_utils.mem_efficient_batched_affinity(query, keys, dustbin_targets, D,
+    Ws, Is, dustbins, mean_dustbin_affs = test_utils.mem_efficient_batched_affinity(query, keys, dustbin_targets, D,
                                                        args.temperature, args.topk, args.long_mem, args.device)
     # Ws, Is = test_utils.batched_affinity(query, keys, D,
     #             args.temperature, args.topk, args.long_mem, args.device)
-    return Ws, Is, dustbins
+    return Ws, Is, dustbins, mean_dustbin_affs
 
 
 def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, args):
@@ -166,10 +167,14 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
         # Prepare source (keys) and target (query) frame features
         key_indices = test_utils.context_index_bank(n_context, args.long_mem, N - n_context)
         key_indices = torch.cat(key_indices, dim=-1)
-        Ws, Is, dustbins = batched_affinity_fn(feats, dustbin_feats, key_indices, n_context, args)
-
+        Ws, Is, dustbins, mean_dustbin_aff = batched_affinity_fn(feats, dustbin_feats, key_indices, n_context, args)
+        dustbins = torch.squeeze(dustbins)
         if torch.cuda.is_available():
             print(time.time() - t03, 'affinity forward, max mem', torch.cuda.max_memory_allocated() / (1024 ** 2))
+        graph_outpath = os.path.join(args.save_path, "graph" + str(vid_idx))
+        plt.figure()
+        plt.plot(mean_dustbin_aff)
+        plt.savefig(graph_outpath)
 
         ##################################################################
         # Propagate Labels and Save Predictions
@@ -218,7 +223,7 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
 
             heatmap, lblmap, heatmap_prob = test_utils.dump_predictions(
                 pred.cpu().numpy(),
-                lbl_map, cur_img, dustbins, outpath)
+                lbl_map, cur_img, dustbins, outpath, vid_idx, t)
 
             _maps += [heatmap, lblmap, heatmap_prob]
             maps.append(_maps)

@@ -77,7 +77,7 @@ def process_pose(pred, lbl_set, topk=3):
     return current_coord.cpu(), pred_val_sharp
 
 
-def dump_predictions(pred, lbl_set, img, dustbins, prefix):
+def dump_predictions(pred, lbl_set, img, dustbins, prefix, vid_idx, t):
     '''
     Save:
         1. Predicted labels for evaluation
@@ -102,7 +102,13 @@ def dump_predictions(pred, lbl_set, img, dustbins, prefix):
 
     # Save blend image for visualization
     imageio.imwrite('%s_blend.jpg' % prefix, np.uint8(img_with_label))
-    np.savez(prefix + "dustbins.npz",dustbins=dustbins.cpu().numpy())
+
+    relevant_dustbin = dustbins[vid_idx,-1,t]
+    resized_dustbin = cv2.resize(relevant_dustbin, (img.shape[1],img.shape[0]), interpolation=cv2.INTER_NEAREST)
+    jetted_dustbin = cm.jet(resized_dustbin)[...,:3] * 255.0
+    dustbin_heatmap = np.float32(img)*.5 + np.float32(jetted_dustbin) * .5
+
+    imageio.imwrite('%s_dustbin.jpg' % prefix, np.uint8(dustbin_heatmap))
 
     if prefix[-4] != '.':  # Super HACK-y
         imname2 = prefix + '_mask.png'
@@ -181,7 +187,8 @@ def mem_efficient_batched_affinity(query, keys, dustbin_targets, mask, temperatu
         Is += [ii for ii in ids]
 
     dustbins = torch.cat(dustbins,dim=0)
-    return Ws, Is, dustbins
+    mean_dustbin_affs = torch.mean(dustbins[:,-1],dim=-1)
+    return Ws, Is, dustbins, mean_dustbin_affs
 
 def batched_affinity(query, keys, mask, temperature, topk, long_mem, device):
     '''
