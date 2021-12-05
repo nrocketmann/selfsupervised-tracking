@@ -173,7 +173,7 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
             print(time.time() - t03, 'affinity forward, max mem', torch.cuda.max_memory_allocated() / (1024 ** 2))
         graph_outpath = os.path.join(args.save_path, "graph" + str(vid_idx))
         plt.figure()
-        plt.plot(mean_dustbin_aff)
+        plt.plot(mean_dustbin_aff.cpu().numpy())
         plt.savefig(graph_outpath)
 
         ##################################################################
