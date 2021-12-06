@@ -103,7 +103,7 @@ def dump_predictions(pred, lbl_set, img, dustbins, prefix, vid_idx, t):
     # Save blend image for visualization
     imageio.imwrite('%s_blend.jpg' % prefix, np.uint8(img_with_label))
 
-    relevant_dustbin = dustbins[vid_idx,-1,t]
+    relevant_dustbin = dustbins[t,-1].cpu().numpy()
     resized_dustbin = cv2.resize(relevant_dustbin, (img.shape[1],img.shape[0]), interpolation=cv2.INTER_NEAREST)
     jetted_dustbin = cm.jet(resized_dustbin)[...,:3] * 255.0
     dustbin_heatmap = np.float32(img)*.5 + np.float32(jetted_dustbin) * .5
