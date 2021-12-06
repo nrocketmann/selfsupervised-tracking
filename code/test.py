@@ -19,6 +19,8 @@ import utils.test_utils as test_utils
 
 
 def main(args, vis):
+    if args.keep_fc:
+        args.remove_layers = []
     model = CRW(args, vis=vis).to(args.device)
     args.mapScale = test_utils.infer_downscale(model)
 
@@ -34,15 +36,18 @@ def main(args, vis):
     if os.path.isfile(args.resume):
         print('==> Resuming from checkpoint..')
         checkpoint = torch.load(args.resume)
-        
+
         if args.model_type == 'scratch':
             state = {}
-            for k,v in checkpoint['model'].items():
+            for k, v in checkpoint['model'].items():
                 if 'conv1.1.weight' in k or 'conv2.1.weight' in k:
                     state[k.replace('.1.weight', '.weight')] = v
                 else:
                     state[k] = v
-            utils.partial_load(state, model, skip_keys=['head'])
+            if args.keep_fc:
+                utils.partial_load(state, model, skip_keys=[])
+            else:
+                utils.partial_load(state, model, skip_keys=['head'])
         else:
             utils.partial_load(checkpoint['model'], model, skip_keys=['head'])
 
@@ -102,6 +107,8 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
         feats = []
         for b in range(0, imgs.shape[1], bsize):
             feat = model.encoder(imgs[:, b:b+bsize].transpose(1,2).to(args.device))
+            if args.keep_fc:
+                feat = model.selfsim_fc(feat.transpose(1,-1)).transpose(1,-1)
             feats.append(feat.cpu())
         feats = torch.cat(feats, dim=2).squeeze(1)
 

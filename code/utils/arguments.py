@@ -46,6 +46,8 @@ def test_args():
     parser.add_argument('--head-depth', default=-1, type=int,
                         help='depth of mlp applied after encoder (0 = linear)')
 
+    parser.add_argument('--keep-fc', default=False, action='store_true',
+                        help='Only use this if you have no layers removed. This makes you keep the final FC layer of the model')
     parser.add_argument('--remove-layers', default=['layer4'], help='layer[1-4]')
     parser.add_argument('--no-l2', default=False, action='store_true', help='')
 
