@@ -57,34 +57,35 @@ def main(args, vis):
     with torch.no_grad():
         test_loss = test(val_loader, model, args)
             
-def batched_affinity_fn(feats, dustbin_feats, key_indices, n_context, args):
+def batched_affinity_fn(query, feats, key_indices, n_context, feats_shape, args):
     # next line is a large alloc, common cause of crashes
 
-    keys, query = feats[:, :, key_indices], feats[:, :, n_context:]
-    #keys are context frames, query is target frame
+    # keys, query = feats[:, :, key_indices], feats[:, :, n_context:]
+    # keys are context frames, query is target frame
     #shapes:
     # keys: 1, C, vidlen, num context frames, H, W
     # query: 1, C, vidlen, H, W
     # dustbin targets: 1, C, vidlen
-    dustbin_targets = dustbin_feats[:,:,n_context:]
+    # dustbin_targets = dustbin_feats[:,:,n_context:]
 
 
     # Make spatial radius mask TODO use torch.sparse
     restrict = utils.MaskedAttention(args.radius, flat=False)
 
     # next line is a ~medium~ alloc, common cause of crashes
-    D = restrict.mask(*feats.shape[-2:])[None]
+    D = restrict.mask(feats_shape)[None]
 
     D = D.flatten(-4, -3)
 
     D = D.flatten(-2)
     D[D==0] = -1e10; D[D==1] = 0
     # Flatten source frame features to make context feature set
-    keys, query = keys.flatten(-2), query.flatten(-2)
-
+    query = query.flatten(-2)
     print('computing affinity')
-    Ws, Is = test_utils.mem_efficient_batched_affinity(query, keys, dustbin_targets, D,
-                args.temperature, args.topk, args.long_mem, args.device)
+    feats = feats.flatten(-2)
+
+    Ws, Is = test_utils.mem_efficient_batched_affinity(query, feats, D,
+                args.temperature, args.topk, args.device, n_context, key_indices)
     # Ws, Is = test_utils.batched_affinity(query, keys, D, 
     #             args.temperature, args.topk, args.long_mem, args.device)
     return Ws, Is
@@ -143,8 +144,11 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
         # Prepare source (keys) and target (query) frame features
         key_indices = test_utils.context_index_bank(n_context, args.long_mem, N - n_context)
         key_indices = torch.cat(key_indices, dim=-1)
-        Ws, Is = batched_affinity_fn(feats, dustbin_feats, key_indices, n_context, args)
-
+        feats_shape = feats.shape[-2:]
+        query = feats[:, :, n_context:]
+        Ws, Is =  batched_affinity_fn(query, feats, key_indices, n_context, feats_shape, args)
+        feats = None
+        keys, query = None, None
         if torch.cuda.is_available():
             print(time.time()-t03, 'affinity forward, max mem', torch.cuda.max_memory_allocated() / (1024**2))
 
@@ -163,7 +167,7 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
 
             # Weighted sum of top-k neighbours (Is is index, Ws is weight) 
             pred = (ctx_lbls[:, Is[t]] * Ws[t].to(args.device)[None]).sum(1)
-            pred = pred.view(-1, *feats.shape[-2:])
+            pred = pred.view(-1, *feats_shape)
             pred = pred.permute(1,2,0)
             
             if t > 0:

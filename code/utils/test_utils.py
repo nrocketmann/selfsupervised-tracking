@@ -138,44 +138,44 @@ def context_index_bank(n_context, long_mem, N):
     return ll + ss
 
 
-def mem_efficient_batched_affinity(query, keys, dustbin_targets, mask, temperature, topk, long_mem, device):
+def mem_efficient_batched_affinity(query, feats, mask, temperature, topk, device, n_context, key_indices):
     '''
     Mini-batched computation of affinity, for memory efficiency
     '''
-    bsize, pbsize = 2, 100 #keys.shape[2] // 2
+    # query 1, C, vidLen-ncontext, HW
+    # feats 1, C, vidLen, HW
+    bsize = 4
     Ws, Is = [], []
-    # keys: 1, C, vidlen, num context frames, HW
-    # query: 1, C, vidlen, HW
-    # dustbin targets: 1, C, vidlen
-    for b in range(0, keys.shape[2], bsize):
-        _k, _q = keys[:, :, b:b+bsize].to(device), query[:, :, b:b+bsize].to(device)
-        _d = dustbin_targets[:,:,b:b+bsize].unsqueeze(-1).to(device)
-        w_s, i_s = [], []
 
-        dustbin_aff = torch.einsum('ijklm,ijkn->iklmn', _k,
-                                   _d)  # shape 1, vidlen, context frames, HW
+    _, _, vid_length, HW = feats.shape
+    mask = mask.to(device)
+    for b in range(0, vid_length-n_context, bsize):
+        print(b, "/", vid_length-n_context)
+        _q = query[:, :, b:b+bsize].to(device)
+        keys = feats[:, :, key_indices[b:b+bsize]].to(device)
+        frame_weights = []
+        frame_ind = []
+        for frame in range(n_context+1):
+            _k = keys[:, :, :, frame, :]
+            A = torch.einsum('ijkm, ijkn->ikmn', _k, _q)
+            if frame > 0:
+                A += mask
+            f_w, f_i = torch.topk(A, topk, dim=2)
+            frame_weights.append(f_w)
+            frame_ind.append(f_i + frame * A.shape[-2])
+            # _d = dustbin_targets[:,:,b:b+bsize].unsqueeze(-1).to(device)
+            # dustbin_aff = torch.einsum('ijklm,ijkn->iklmn', _k, _d)  # shape 1, vidlen, context frames, HW
 
-        for pb in range(0, _k.shape[-1], pbsize):
-            A = torch.einsum('ijklm,ijkn->iklmn', _k, _q[..., pb:pb+pbsize])  #shape 1, vidlen, context frames, HW, HW
-            A[0, :, len(long_mem):] += mask[..., pb:pb+pbsize].to(device)
 
-            _, N, T, h1w1, hw = A.shape
-            # shape 1, vidlen, context frames, HW, HW
+        frame_weights = torch.cat(frame_weights, dim=2)
+        frame_ind = torch.cat(frame_ind, dim=2)
 
-            A = A.view(N, T*h1w1, hw)
-            A /= temperature
-
-            weights, ids = torch.topk(A, topk, dim=-2)
-            weights = F.softmax(weights, dim=-2)
-            
-            w_s.append(weights.cpu())
-            i_s.append(ids.cpu())
-
-        weights = torch.cat(w_s, dim=-1)
-        ids = torch.cat(i_s, dim=-1)
-        Ws += [w for w in weights]
-        Is += [ii for ii in ids]
-
+        final_w, final_i = torch.topk(frame_weights, topk, dim=2)
+        ids = torch.gather(frame_ind, dim=2, index=final_i)
+        final_w /= temperature
+        final_w = F.softmax(final_w, dim=2)
+        Ws += [w for w in final_w[0]]
+        Is += [ii for ii in ids[0]]
 
     return Ws, Is
 
