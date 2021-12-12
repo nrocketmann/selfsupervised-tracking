@@ -89,10 +89,12 @@ def batched_affinity_fn(feats, dustbin_feats, key_indices, n_context, args):
     D[D == 1] = 0
     # Flatten source frame features to make context feature set
     query = query.flatten(-2)
+    feat_shape = feats.shape[-2:]
+    feats = feats.flatten(-2)
 
     print('computing affinity')
     Ws, Is, dustbins, mean_dustbin_affs = test_utils.mem_efficient_batched_affinity(query,key_indices,n_context,feats, dustbin_targets, D,
-                                                       args.temperature, args.topk, args.long_mem, args.device)
+                                                       args.temperature, args.topk, args.device,feat_shape)
     # Ws, Is = test_utils.batched_affinity(query, keys, D,
     #             args.temperature, args.topk, args.long_mem, args.device)
     return Ws, Is, dustbins, mean_dustbin_affs

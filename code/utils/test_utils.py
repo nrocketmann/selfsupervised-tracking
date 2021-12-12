@@ -145,11 +145,11 @@ def context_index_bank(n_context, long_mem, N):
     return ll + ss
 
 
-def mem_efficient_batched_affinity(query, key_indices, n_context, feats, dustbin_targets, mask, temperature, topk, device):
+def mem_efficient_batched_affinity(query, key_indices, n_context, feats, dustbin_targets, mask, temperature, topk, device, feat_shape):
     '''
     Mini-batched computation of affinity, for memory efficiency
     '''
-    _, _, vid_length, HW = feats.shape
+    vid_length, HW = feats.shape[-2:]
     bsize, pbsize = 2, 100 #keys.shape[2] // 2
     Ws, Is = [], []
     dustbins = []
@@ -165,7 +165,7 @@ def mem_efficient_batched_affinity(query, key_indices, n_context, feats, dustbin
         dustbin_aff = torch.einsum('ijklm,ijkn->iklmn', keys,
                                    _d).squeeze(-1)  # shape 1, vidlen, context frames, HW
         _, shape1, shape2, shape3 = dustbin_aff.shape
-        dustbin_aff = dustbin_aff.view(shape1, shape2, int(np.sqrt(shape3)), -1)
+        dustbin_aff = dustbin_aff.view(shape1, shape2, *feat_shape)
         dustbins.append(dustbin_aff)
         keys = feats[:, :, key_indices[b:b + bsize]].to(device)
         frame_weights = []
