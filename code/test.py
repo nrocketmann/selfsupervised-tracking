@@ -73,7 +73,7 @@ def batched_affinity_fn(query, feats, key_indices, n_context, feats_shape, args)
     restrict = utils.MaskedAttention(args.radius, flat=False)
 
     # next line is a ~medium~ alloc, common cause of crashes
-    D = restrict.mask(feats_shape)[None]
+    D = restrict.mask(*feats_shape)[None]
 
     D = D.flatten(-4, -3)
 
