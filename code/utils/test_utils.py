@@ -144,7 +144,7 @@ def mem_efficient_batched_affinity(query, feats, mask, temperature, topk, device
     '''
     # query 1, C, vidLen-ncontext, HW
     # feats 1, C, vidLen, HW
-    bsize = 2
+    bsize = 1
     Ws, Is = [], []
 
     _, _, vid_length, HW = feats.shape
