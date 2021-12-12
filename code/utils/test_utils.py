@@ -145,46 +145,60 @@ def context_index_bank(n_context, long_mem, N):
     return ll + ss
 
 
-def mem_efficient_batched_affinity(query, keys, dustbin_targets, mask, temperature, topk, long_mem, device):
+def mem_efficient_batched_affinity(query, key_indices, n_context, feats, dustbin_targets, mask, temperature, topk, device):
     '''
     Mini-batched computation of affinity, for memory efficiency
     '''
+    _, _, vid_length, HW = feats.shape
     bsize, pbsize = 2, 100 #keys.shape[2] // 2
     Ws, Is = [], []
     dustbins = []
+    mask = mask.to(device)
     # keys: 1, C, vidlen, num context frames, HW
     # query: 1, C, vidlen, HW
     # dustbin targets: 1, C, vidlen
-    for b in range(0, keys.shape[2], bsize):
-        _k, _q = keys[:, :, b:b+bsize].to(device), query[:, :, b:b+bsize].to(device)
+    for b in range(0, vid_length-n_context, bsize):
+        keys = feats[:, :, key_indices[b:b+bsize]].to(device)
+        _q = query[:, :, b:b+bsize].to(device)
         _d = dustbin_targets[:,:,b:b+bsize].unsqueeze(-1).to(device)
-        w_s, i_s = [], []
 
-        dustbin_aff = torch.einsum('ijklm,ijkn->iklmn', _k,
+        dustbin_aff = torch.einsum('ijklm,ijkn->iklmn', keys,
                                    _d).squeeze(-1)  # shape 1, vidlen, context frames, HW
         _, shape1, shape2, shape3 = dustbin_aff.shape
         dustbin_aff = dustbin_aff.view(shape1, shape2, int(np.sqrt(shape3)), -1)
         dustbins.append(dustbin_aff)
-        for pb in range(0, _k.shape[-1], pbsize):
-            A = torch.einsum('ijklm,ijkn->iklmn', _k, _q[..., pb:pb+pbsize])  #shape 1, vidlen, context frames, HW, HW
-            A[0, :, len(long_mem):] += mask[..., pb:pb+pbsize].to(device)
+        keys = feats[:, :, key_indices[b:b + bsize]].to(device)
+        frame_weights = []
+        frame_ind = []
+        for frame in range(n_context + 1):
+            _k = keys[:, :, :, frame, :]
+            # _k shape 1,C,bsize, HW
+            # _q shape 1,C,bsize, HW
 
-            _, N, T, h1w1, hw = A.shape
-            # shape 1, vidlen, context frames, HW, HW
+            _q_new = _q
+            A = torch.einsum('ijkm, ijkn->ikmn', _k, _q_new)
+            if frame > 0:
+                A += mask
+            # A_big[:, :, frame, :, :] = A
+            f_w, f_i = torch.topk(A, topk, dim=2)
+            frame_weights.append(f_w)
+            frame_ind.append(f_i + frame * A.shape[-2])
 
-            A = A.view(N, T*h1w1, hw)
-            A /= temperature
+        frame_weights = torch.cat(frame_weights, dim=2)
+        frame_ind = torch.cat(frame_ind, dim=2)
 
-            weights, ids = torch.topk(A, topk, dim=-2)
-            weights = F.softmax(weights, dim=-2)
-            
-            w_s.append(weights.cpu())
-            i_s.append(ids.cpu())
+        final_w, final_i = torch.topk(frame_weights, topk, dim=2)
+        ids = torch.gather(frame_ind, dim=2, index=final_i)
+        final_w /= temperature
+        final_w = F.softmax(final_w, dim=2)
 
-        weights = torch.cat(w_s, dim=-1)
-        ids = torch.cat(i_s, dim=-1)
-        Ws += [w for w in weights]
-        Is += [ii for ii in ids]
+        # A_big = A_big.view(1, A_big.shape[1], A_big.shape[2]*A_big.shape[3], A_big.shape[4])
+        # A_big /= temperature
+        # weights2, ids = torch.topk(A_big, topk, dim=-2)
+        # final_w = F.softmax(weights2.cpu(), dim=-2)
+
+        Ws += [w for w in final_w[0]]
+        Is += [ii for ii in ids[0]]
 
     dustbins = torch.cat(dustbins,dim=0)
     mean_dustbin_affs = torch.mean(dustbins[:,-1],dim=-1)

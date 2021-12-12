@@ -68,7 +68,7 @@ def main(args, vis):
 def batched_affinity_fn(feats, dustbin_feats, key_indices, n_context, args):
     # next line is a large alloc, common cause of crashes
 
-    keys, query = feats[:, :, key_indices], feats[:, :, n_context:]
+    query =  feats[:, :, n_context:]
     # keys are context frames, query is target frame
     # shapes:
     # keys: 1, C, vidlen, num context frames, H, W
@@ -88,10 +88,10 @@ def batched_affinity_fn(feats, dustbin_feats, key_indices, n_context, args):
     D[D == 0] = -1e10
     D[D == 1] = 0
     # Flatten source frame features to make context feature set
-    keys, query = keys.flatten(-2), query.flatten(-2)
+    query = query.flatten(-2)
 
     print('computing affinity')
-    Ws, Is, dustbins, mean_dustbin_affs = test_utils.mem_efficient_batched_affinity(query, keys, dustbin_targets, D,
+    Ws, Is, dustbins, mean_dustbin_affs = test_utils.mem_efficient_batched_affinity(query,key_indices,n_context,feats, dustbin_targets, D,
                                                        args.temperature, args.topk, args.long_mem, args.device)
     # Ws, Is = test_utils.batched_affinity(query, keys, D,
     #             args.temperature, args.topk, args.long_mem, args.device)
