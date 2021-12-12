@@ -139,13 +139,13 @@ def context_index_bank(n_context, long_mem, N):
 
 
 #def mem_efficient_batched_affinity(query, keys, mask, temperature, topk, long_mem, device):
-def mem_efficient_batched_affinity(query, feats, mask, temperature, topk, long_mem, device, n_context, key_indices):
+def mem_efficient_batched_affinity(query, feats, mask, temperature, topk, long_mem, device, n_context, key_indices, model):
     '''
     Mini-batched computation of affinity, for memory efficiency
     '''
     # query 1, C, vidLen-ncontext, HW
     # feats 1, C, vidLen, HW
-    bsize = 8
+    bsize = 4
     Ws, Is = [], []
 
     _, _, vid_length, HW = feats.shape
@@ -165,11 +165,14 @@ def mem_efficient_batched_affinity(query, feats, mask, temperature, topk, long_m
             # _k shape 1,C,bsize, HW
             # _q shape 1,C,bsize, HW
 
-            #_k, _q_gnn = model.graph_matching(_k, _q)
-            _q_gnn = _q
-            #_k = F.normalize(_k, p=2, dim=1)
-            #_q_gnn = F.normalize(_q_gnn, p=2, dim=1)
-            A = torch.einsum('ijkm, ijkn->ikmn', _k, _q_gnn)
+            if model.graph_matching is not None:
+                print("if see then broken")
+                _k, _q_new = model.graph_matching(_k, _q)
+                _k = F.normalize(_k, p=2, dim=1)
+                _q_new = F.normalize(_q_new, p=2, dim=1)
+            else:
+                _q_new = _q
+            A = torch.einsum('ijkm, ijkn->ikmn', _k, _q_new)
             if frame > 0:
                 A += mask
             #A_big[:, :, frame, :, :] = A

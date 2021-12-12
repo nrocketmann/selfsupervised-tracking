@@ -19,7 +19,7 @@ import utils.test_utils as test_utils
 
 
 def main(args, vis):
-    model = CRW(args, vis=vis).to(args.device)
+    model = CRW(args, vis=vis, use_gnn=args.use_gnn).to(args.device)
     args.mapScale = test_utils.infer_downscale(model)
 
     args.use_lab = args.model_type == 'uvc'
@@ -58,7 +58,7 @@ def main(args, vis):
         test_loss = test(val_loader, model, args)
             
 #def batched_affinity_fn(keys, query, key_indices, n_context, args, feats_shape):
-def batched_affinity_fn(query, feats, key_indices, n_context, args, feats_shape):
+def batched_affinity_fn(query, feats, key_indices, n_context, args, feats_shape, model):
     # Make spatial radius mask TODO use torch.sparse
     restrict = utils.MaskedAttention(args.radius, flat=False)
 
@@ -76,7 +76,7 @@ def batched_affinity_fn(query, feats, key_indices, n_context, args, feats_shape)
     feats = feats.flatten(-2)
 
     Ws, Is = test_utils.mem_efficient_batched_affinity(query, feats, D, 
-                 args.temperature, args.topk, args.long_mem, args.device, n_context, key_indices)
+                 args.temperature, args.topk, args.long_mem, args.device, n_context, key_indices, model)
     #Ws2, Is2 = test_utils.mem_efficient_batched_affinity2(query, keys, feats, D, 
     #             args.temperature, args.topk, args.long_mem, args.device, n_context, key_indices)
 
@@ -103,12 +103,14 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
         for b in range(0, imgs.shape[1], bsize):
             feat = model.encoder(imgs[:, b:b+bsize].transpose(1,2).to(args.device))
             if args.use_gnn:
+                print("should not see this!!!")
                 feat = model.selfsim_fc(feat.transpose(1,-1)).transpose(1,-1)
             feats.append(feat.cpu())
         feats = torch.cat(feats, dim=2).squeeze(1)
 
-        if not args.no_l2:# or args.use_gnn:
+        if not args.use_gnn:
             # this executes by default
+            print("should see this")
             feats = torch.nn.functional.normalize(feats, dim=1)
 
         print('computed features', time.time()-t00)
@@ -135,7 +137,7 @@ def test_fn(vid_idx, imgs, imgs_orig, lbls, lbls_orig, lbl_map, meta, model, arg
         #query = feats[:, :, n_context:]
         #feats = None
         #Ws, Is = batched_affinity_fn(keys, query, key_indices, n_context, args, feats_shape)
-        Ws, Is = batched_affinity_fn(query, feats, key_indices, n_context, args, feats_shape)
+        Ws, Is = batched_affinity_fn(query, feats, key_indices, n_context, args, feats_shape, model)
         feats = None
         keys, query = None, None
         if torch.cuda.is_available():

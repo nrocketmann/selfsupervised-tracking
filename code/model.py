@@ -33,10 +33,10 @@ class CRW(nn.Module):
         self.sk_targets = getattr(args, 'sk_targets', False)
         self.vis = vis
 
-        num_layers = 4
+        num_layers = 6
         hidden_dim = 128
         num_heads = 4
-        FF_dim = 128
+        FF_dim = 256
 
         self.use_gnn = use_gnn
         if use_gnn:
